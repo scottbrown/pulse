@@ -3,9 +3,10 @@ version: '3'
 vars:
   BUILD_DIR: .build
   DIST_DIR: .dist
+  TEST_DIR: .test
   BINARY_NAME: pulse
-  COVERAGE_FILE: coverage.out
-  COVERAGE_HTML: coverage.html
+  COVERAGE_FILE: "{{.TEST_DIR}}/coverage.out"
+  COVERAGE_HTML: "{{.TEST_DIR}}/coverage.html"
   VERSION:
     sh: git rev-parse --abbrev-ref HEAD || echo "main"
   BUILD:
@@ -20,14 +21,14 @@ tasks:
   clean:
     desc: Clean build artifacts
     cmds:
-      - rm -rf {{.BUILD_DIR}} {{.DIST_DIR}}
-      - rm -f {{.COVERAGE_FILE}} {{.COVERAGE_HTML}}
+      - rm -rf {{.BUILD_DIR}} {{.DIST_DIR}} {{.TEST_DIR}}
 
   setup:
     desc: Create necessary directories
     cmds:
       - mkdir -p {{.BUILD_DIR}}
       - mkdir -p {{.DIST_DIR}}
+      - mkdir -p {{.TEST_DIR}}
 
   fmt:
     desc: Format Go code
@@ -51,15 +52,18 @@ tasks:
 
   test:
     desc: Run tests
+    deps: [setup]
     cmds:
-      - go test -v ./...
+      - go test -v ./... -outputdir={{.TEST_DIR}}
 
   coverage:
     desc: Generate test coverage report
+    deps: [setup]
     cmds:
       - go test -coverprofile={{.COVERAGE_FILE}} ./...
       - go tool cover -html={{.COVERAGE_FILE}} -o {{.COVERAGE_HTML}}
       - go tool cover -func={{.COVERAGE_FILE}}
+      - echo "Coverage report generated at {{.COVERAGE_HTML}}"
 
   install:
     desc: Install the CLI application

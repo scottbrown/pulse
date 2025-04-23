@@ -27,6 +27,7 @@ go.work.sum
 # derived files and directories
 .build
 .task
+.test
 config/*
 data/*
 coverage.html

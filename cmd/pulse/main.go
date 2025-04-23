@@ -99,9 +99,10 @@ func main() {
 
 	// Add init command
 	initCmd := &cobra.Command{
-		Use:   "init",
+		Use:   "init [directory]",
 		Short: "Initialize configuration files",
-		Long:  `Create default configuration files if they don't exist.`,
+		Long:  `Create default configuration files in the specified directory. If no directory is provided, files will be created in the default location (~/.pulse/).`,
+		Args:  cobra.MaximumNArgs(1),
 		Run:   runInitCmd,
 	}
 
@@ -318,8 +319,28 @@ func runListCategoriesCmd(cmd *cobra.Command, args []string) {
 }
 
 func runInitCmd(cmd *cobra.Command, args []string) {
-	// Initialize the config loader
-	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+	var targetConfigDir, targetDataDir string
+
+	if len(args) > 0 {
+		// Use the specified directory
+		targetDir := args[0]
+
+		// Create the directory if it doesn't exist
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			fmt.Printf("Error creating directory %s: %v\n", targetDir, err)
+			os.Exit(1)
+		}
+
+		targetConfigDir = filepath.Join(targetDir, "config")
+		targetDataDir = filepath.Join(targetDir, "data")
+	} else {
+		// Use the default directories
+		targetConfigDir = configDir
+		targetDataDir = dataDir
+	}
+
+	// Initialize the config loader with the target directories
+	configLoader := pulse.NewConfigLoader(targetConfigDir, targetDataDir)
 
 	// Create default configuration files
 	err := configLoader.CreateDefaultConfigFiles()
@@ -329,6 +350,6 @@ func runInitCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("Default configuration files created in:\n")
-	fmt.Printf("  Config directory: %s\n", configDir)
-	fmt.Printf("  Data directory: %s\n", dataDir)
+	fmt.Printf("  Config directory: %s\n", targetConfigDir)
+	fmt.Printf("  Data directory: %s\n", targetDataDir)
 }

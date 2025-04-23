@@ -144,14 +144,34 @@ pulse list categories
 pulse version
 # or
 pulse --version
+
+# Initialize configuration files in the default location
+pulse init
+
+# Initialize configuration files in a specific directory
+pulse init /path/to/directory
 ```
 
 ## Configuration
 
-1. Create your configuration files in the `config/` directory
-2. Define your metrics in `config/metrics.yaml`
-3. Set up your scoring parameters in `config/levers.yaml`
-4. Add your metric values in `data/metrics.yaml`
+You can initialize the configuration files in two ways:
+
+1. In the default location (~/.pulse/):
+   ```bash
+   pulse init
+   ```
+
+2. In a specific directory:
+   ```bash
+   pulse init /path/to/directory
+   ```
+
+This will create:
+- `config/metrics.yaml`: Define your KPIs and KRIs organized by categories
+- `config/levers.yaml`: Define scoring weights and thresholds
+- `data/metrics.yaml`: Store your metric values
+
+You can then customize these files according to your needs.
 
 ## Development
 
