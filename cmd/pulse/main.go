@@ -32,7 +32,7 @@ func main() {
 		Use:     "pulse",
 		Short:   "Pulse - Risk and Performance measurement framework CLI",
 		Long:    `A CLI application for reporting on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for security programs.`,
-		Version: fmt.Sprintf("%s+%s", version, build),
+		Version: fmt.Sprintf("%s (%s)", version, build),
 	}
 
 	// Set up default directories
