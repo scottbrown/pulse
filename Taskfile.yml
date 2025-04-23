@@ -1,0 +1,125 @@
+version: '3'
+
+vars:
+  BUILD_DIR: .build
+  BINARY_NAME: pulse
+  COVERAGE_FILE: coverage.out
+  COVERAGE_HTML: coverage.html
+
+tasks:
+  default:
+    desc: Display available tasks
+    cmds:
+      - task --list
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -f {{.COVERAGE_FILE}} {{.COVERAGE_HTML}}
+
+  setup:
+    desc: Create necessary directories
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Lint Go code
+    cmds:
+      - go vet ./...
+
+  build:
+    desc: Build the CLI application
+    deps: [setup, fmt, lint]
+    cmds:
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} cmd/pulse/main.go
+    sources:
+      - '**/*.go'
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test -v ./...
+
+  coverage:
+    desc: Generate test coverage report
+    cmds:
+      - go test -coverprofile={{.COVERAGE_FILE}} ./...
+      - go tool cover -html={{.COVERAGE_FILE}} -o {{.COVERAGE_HTML}}
+      - go tool cover -func={{.COVERAGE_FILE}}
+
+  install:
+    desc: Install the CLI application
+    deps: [build]
+    cmds:
+      - cp {{.BUILD_DIR}}/{{.BINARY_NAME}} $GOPATH/bin/
+
+  init-config:
+    desc: Initialize default configuration files
+    deps: [build]
+    cmds:
+      - mkdir -p ~/.pulse/config ~/.pulse/data
+      - cp config/metrics.yaml ~/.pulse/config/
+      - cp config/levers.yaml ~/.pulse/config/
+      - cp data/metrics.yaml ~/.pulse/data/
+
+  run:
+    desc: Run the CLI application
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} {{.CLI_ARGS}}
+
+  run-report:
+    desc: Generate a security posture report
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} report {{.CLI_ARGS}}
+
+  run-report-json:
+    desc: Generate a security posture report in JSON format
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} report --format json {{.CLI_ARGS}}
+
+  run-category-report:
+    desc: Generate a report for a specific category
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} report --category {{.CATEGORY}} {{.CLI_ARGS}}
+    requires:
+      vars: [CATEGORY]
+
+  run-list-metrics:
+    desc: List all available metrics
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} list metrics {{.CLI_ARGS}}
+
+  run-list-categories:
+    desc: List all available categories
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} list categories {{.CLI_ARGS}}
+
+  run-update-metric:
+    desc: Update a metric value
+    deps: [build]
+    cmds:
+      - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} update --metric {{.METRIC}} --value {{.VALUE}} {{.CLI_ARGS}}
+    requires:
+      vars: [METRIC, VALUE]
+
+  all:
+    desc: Run all tasks (clean, build, test, coverage)
+    cmds:
+      - task: clean
+      - task: build
+      - task: test
+      - task: coverage
