@@ -2,9 +2,14 @@ version: '3'
 
 vars:
   BUILD_DIR: .build
+  DIST_DIR: .dist
   BINARY_NAME: pulse
   COVERAGE_FILE: coverage.out
   COVERAGE_HTML: coverage.html
+  VERSION:
+    sh: git rev-parse --abbrev-ref HEAD || echo "main"
+  BUILD:
+    sh: git rev-parse --short HEAD || echo "unknown"
 
 tasks:
   default:
@@ -15,13 +20,14 @@ tasks:
   clean:
     desc: Clean build artifacts
     cmds:
-      - rm -rf {{.BUILD_DIR}}
+      - rm -rf {{.BUILD_DIR}} {{.DIST_DIR}}
       - rm -f {{.COVERAGE_FILE}} {{.COVERAGE_HTML}}
 
   setup:
     desc: Create necessary directories
     cmds:
       - mkdir -p {{.BUILD_DIR}}
+      - mkdir -p {{.DIST_DIR}}
 
   fmt:
     desc: Format Go code
@@ -37,7 +43,7 @@ tasks:
     desc: Build the CLI application
     deps: [setup, fmt, lint]
     cmds:
-      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} cmd/pulse/main.go
+      - go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} cmd/pulse/main.go
     sources:
       - '**/*.go'
     generates:
@@ -115,6 +121,26 @@ tasks:
       - ./{{.BUILD_DIR}}/{{.BINARY_NAME}} update --metric {{.METRIC}} --value {{.VALUE}} {{.CLI_ARGS}}
     requires:
       vars: [METRIC, VALUE]
+
+  release:
+    desc: Build release artifacts for multiple platforms
+    deps: [clean, setup]
+    cmds:
+      # Ensure directories exist
+      - mkdir -p {{.BUILD_DIR}}
+      - mkdir -p {{.DIST_DIR}}
+      
+      # Build for Linux
+      - GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 cmd/pulse/main.go
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-linux-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-linux-amd64
+      
+      # Build for Windows
+      - GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe cmd/pulse/main.go
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-windows-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-windows-amd64.exe
+      
+      # Build for macOS
+      - GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 cmd/pulse/main.go
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-darwin-amd64
 
   all:
     desc: Run all tasks (clean, build, test, coverage)

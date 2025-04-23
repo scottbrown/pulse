@@ -30,3 +30,4 @@ go.work.sum
 config/*
 data/*
 coverage.html
+.dist

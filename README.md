@@ -139,6 +139,11 @@ pulse list metrics
 
 # List all categories
 pulse list categories
+
+# Display version information
+pulse version
+# or
+pulse --version
 ```
 
 ## Configuration
@@ -180,9 +185,38 @@ The project is structured to be used both as a CLI application and as a library:
 ### Adding New Features
 
 1. Define new command in `cmd/pulse/`
-2. Implement supporting logic in `internal/`
+2. Implement supporting logic in the root package
 3. Update tests
 4. Update documentation
+
+### Building and Releasing
+
+The project includes a Taskfile with various tasks for building, testing, and releasing:
+
+```bash
+# Build the application
+task build
+
+# Run tests
+task test
+
+# Generate test coverage report
+task coverage
+
+# Create release artifacts for Windows, Linux, and macOS
+task release
+```
+
+The release task builds the application for multiple platforms (Windows, Linux, and macOS) and creates compressed archives in the `.dist` directory.
+
+#### Version Information
+
+The application includes version information that is set at build time:
+
+- `version`: Determined from the current git branch or tag
+- `build`: Determined from the git commit hash
+
+When building a release, the version will be set to the git tag if the repository is checked out at a tag.
 
 ## License
 

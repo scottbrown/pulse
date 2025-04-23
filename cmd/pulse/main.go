@@ -10,6 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version information set by build flags
+var (
+	version = "main"
+	build   = "unknown"
+)
+
 var (
 	configDir  string
 	dataDir    string
@@ -23,9 +29,10 @@ var (
 func main() {
 	// Define root command
 	rootCmd := &cobra.Command{
-		Use:   "pulse",
-		Short: "Pulse - Risk and Performance measurement framework CLI",
-		Long:  `A CLI application for reporting on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for security programs.`,
+		Use:     "pulse",
+		Short:   "Pulse - Risk and Performance measurement framework CLI",
+		Long:    `A CLI application for reporting on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for security programs.`,
+		Version: fmt.Sprintf("%s+%s", version, build),
 	}
 
 	// Set up default directories
@@ -101,8 +108,18 @@ func main() {
 	// Add subcommands to list command
 	listCmd.AddCommand(metricsCmd, categoriesCmd)
 
+	// Add version command
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version information",
+		Long:  `Print the version and build information of the Pulse CLI.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("Pulse CLI version %s+%s\n", version, build)
+		},
+	}
+
 	// Add commands to root command
-	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, initCmd)
+	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, initCmd, versionCmd)
 
 	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {
