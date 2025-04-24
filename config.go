@@ -373,9 +373,15 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 	if _, err := os.Stat(leversConfigPath); os.IsNotExist(err) {
 		defaultLeversConfig := `global:
 		thresholds:
-		  green: 80
-		  yellow: 60
-		  red: 0
+		  green:
+		    min: 80
+		    max: 100
+		  yellow:
+		    min: 60
+		    max: 79
+		  red:
+		    min: 0
+		    max: 59
 		
 weights:
 		categories:
@@ -385,9 +391,15 @@ weights:
 		
 		category_thresholds:
 		  "compliance":
-		    green: 85
-		    yellow: 70
-		    red: 0`
+		    green:
+		      min: 85
+		      max: 100
+		    yellow:
+		      min: 70
+		      max: 84
+		    red:
+		      min: 0
+		      max: 69`
 
 		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default levers config: %w", err)

@@ -64,13 +64,17 @@ type MetricsData struct {
 	Metrics []Metric `yaml:"metrics"`
 }
 
-// Thresholds represents the traffic light thresholds
+// ThresholdRange represents a range with min and max values
+type ThresholdRange struct {
+	Min int `yaml:"min"` // Minimum value (inclusive)
+	Max int `yaml:"max"` // Maximum value (inclusive)
+}
 
-// Thresholds represents the traffic light thresholds
+// Thresholds represents the traffic light thresholds with ranges
 type Thresholds struct {
-	Green  int `yaml:"green"`  // Green threshold
-	Yellow int `yaml:"yellow"` // Yellow threshold
-	Red    int `yaml:"red"`    // Red threshold
+	Green  ThresholdRange `yaml:"green"`  // Green threshold range
+	Yellow ThresholdRange `yaml:"yellow"` // Yellow threshold range
+	Red    ThresholdRange `yaml:"red"`    // Red threshold range
 }
 
 // CategoryWeights represents the weights for each category

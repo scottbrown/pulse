@@ -155,13 +155,18 @@ func calculateKRIScore(value float64, kri KRI) int {
 
 // determineStatus determines the traffic light status based on the score
 func determineStatus(score int, thresholds Thresholds) TrafficLightStatus {
-	if score >= thresholds.Green {
+	// Check if score is within the Green range
+	if score >= thresholds.Green.Min && score <= thresholds.Green.Max {
 		return Green
-	} else if score >= thresholds.Yellow {
-		return Yellow
-	} else {
-		return Red
 	}
+
+	// Check if score is within the Yellow range
+	if score >= thresholds.Yellow.Min && score <= thresholds.Yellow.Max {
+		return Yellow
+	}
+
+	// Default to Red
+	return Red
 }
 
 // calculateAverage calculates the average value from a slice of integers

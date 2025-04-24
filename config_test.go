@@ -58,9 +58,15 @@ func TestConfigLoader(t *testing.T) {
 
 	leversConfigData := `global:
   thresholds:
-    green: 80
-    yellow: 60
-    red: 0`
+    green:
+      min: 80
+      max: 100
+    yellow:
+      min: 60
+      max: 79
+    red:
+      min: 0
+      max: 59`
 
 	if err := os.WriteFile(filepath.Join(configDir, "levers.yaml"), []byte(leversConfigData), 0644); err != nil {
 		t.Fatalf("Failed to write levers config file: %v", err)
@@ -119,8 +125,8 @@ func TestConfigLoader(t *testing.T) {
 		t.Fatalf("Failed to load levers config: %v", err)
 	}
 
-	if leversConfig.Global.Thresholds.Green <= 0 {
-		t.Error("Expected positive green threshold in levers config")
+	if leversConfig.Global.Thresholds.Green.Min <= 0 {
+		t.Error("Expected positive green threshold min value in levers config")
 	}
 
 	metricsData, err := loader.LoadMetricsData()

@@ -128,15 +128,29 @@ func main() {
 		Run:   runViewCategoryThresholdsCmd,
 	}
 
-	validateLeversCmd := &cobra.Command{
+	validateCmd := &cobra.Command{
 		Use:   "validate",
-		Short: "Validate category weights",
-		Long:  `Validate that category weights add up to 100%.`,
+		Short: "Validate all lever configurations",
+		Long:  `Validate both category weights and threshold configurations.`,
 		Run:   runValidateLeversCmd,
 	}
 
+	validateWeightsCmd := &cobra.Command{
+		Use:   "validate-weights",
+		Short: "Validate category weights",
+		Long:  `Validate that category weights add up to 100%.`,
+		Run:   runValidateWeightsCmd,
+	}
+
+	validateThresholdsCmd := &cobra.Command{
+		Use:   "validate-thresholds",
+		Short: "Validate threshold configurations",
+		Long:  `Validate that global and category-specific thresholds do not overlap and follow the correct order (Red < Yellow < Green).`,
+		Run:   runValidateThresholdsCmd,
+	}
+
 	// Add subcommands to levers command
-	leversCmd.AddCommand(allLeversCmd, globalThresholdsCmd, scoringBandsCmd, categoryWeightsCmd, categoryThresholdsCmd, validateLeversCmd)
+	leversCmd.AddCommand(allLeversCmd, globalThresholdsCmd, scoringBandsCmd, categoryWeightsCmd, categoryThresholdsCmd, validateCmd, validateWeightsCmd, validateThresholdsCmd)
 
 	// Add metrics subcommand
 	metricsCmd := &cobra.Command{
@@ -530,9 +544,9 @@ func runViewAllLeversCmd(cmd *cobra.Command, args []string) {
 	// Display global thresholds
 	fmt.Println("Global Thresholds:")
 	fmt.Println("-----------------")
-	fmt.Printf("Green:  %d\n", leversConfig.Global.Thresholds.Green)
-	fmt.Printf("Yellow: %d\n", leversConfig.Global.Thresholds.Yellow)
-	fmt.Printf("Red:    %d\n", leversConfig.Global.Thresholds.Red)
+	fmt.Printf("Green:  %d-%d\n", leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max)
+	fmt.Printf("Yellow: %d-%d\n", leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max)
+	fmt.Printf("Red:    %d-%d\n", leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max)
 	fmt.Println()
 
 	// Note: Global scoring bands have been removed in favor of per-metric scoring bands
@@ -580,9 +594,9 @@ func runViewGlobalThresholdsCmd(cmd *cobra.Command, args []string) {
 	// Display global thresholds
 	fmt.Println("Global Thresholds:")
 	fmt.Println("-----------------")
-	fmt.Printf("Green:  %d\n", leversConfig.Global.Thresholds.Green)
-	fmt.Printf("Yellow: %d\n", leversConfig.Global.Thresholds.Yellow)
-	fmt.Printf("Red:    %d\n", leversConfig.Global.Thresholds.Red)
+	fmt.Printf("Green:  %d-%d\n", leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max)
+	fmt.Printf("Yellow: %d-%d\n", leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max)
+	fmt.Printf("Red:    %d-%d\n", leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max)
 }
 
 // runViewScoringBandsCmd displays scoring bands
@@ -648,15 +662,15 @@ func runViewCategoryThresholdsCmd(cmd *cobra.Command, args []string) {
 	} else {
 		for category, thresholds := range leversConfig.Weights.CategoryThresholds {
 			fmt.Printf("%s:\n", category)
-			fmt.Printf("  Green:  %d\n", thresholds.Green)
-			fmt.Printf("  Yellow: %d\n", thresholds.Yellow)
-			fmt.Printf("  Red:    %d\n", thresholds.Red)
+			fmt.Printf("  Green:  %d-%d\n", thresholds.Green.Min, thresholds.Green.Max)
+			fmt.Printf("  Yellow: %d-%d\n", thresholds.Yellow.Min, thresholds.Yellow.Max)
+			fmt.Printf("  Red:    %d-%d\n", thresholds.Red.Min, thresholds.Red.Max)
 		}
 	}
 }
 
-// runValidateLeversCmd validates that category weights add up to 100%
-func runValidateLeversCmd(cmd *cobra.Command, args []string) {
+// runValidateWeightsCmd validates that category weights add up to 100%
+func runValidateWeightsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
 	configLoader := pulse.NewConfigLoader(configDir, dataDir)
 
@@ -697,6 +711,345 @@ func runValidateLeversCmd(cmd *cobra.Command, args []string) {
 		fmt.Println("✅ Validation PASSED: Category weights add up to 100%")
 	} else {
 		fmt.Printf("❌ Validation FAILED: Category weights add up to %.0f%%, expected 100%%\n", totalWeight*100)
+		os.Exit(1)
+	}
+}
+
+// runValidateLeversCmd validates both category weights and threshold configurations
+func runValidateLeversCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Running complete validation of levers configuration...")
+	fmt.Println()
+
+	// First validate weights
+	fmt.Println("=== Category Weights Validation ===")
+
+	// Sum up the category weights
+	var totalWeight float64
+	for _, weight := range leversConfig.Weights.Categories {
+		totalWeight += weight
+	}
+
+	// Check if the weights add up to 100% (1.0)
+	if len(leversConfig.Weights.Categories) == 0 {
+		fmt.Println("No category weights defined.")
+		os.Exit(1)
+	}
+
+	// Display all category weights
+	for category, weight := range leversConfig.Weights.Categories {
+		fmt.Printf("%s: %.2f (%.0f%%)\n", category, weight, weight*100)
+	}
+	fmt.Println()
+
+	// Display the total and validation result
+	fmt.Printf("Total weight: %.2f (%.0f%%)\n", totalWeight, totalWeight*100)
+
+	// Use a small epsilon for floating point comparison
+	const epsilon = 0.0001
+	weightsValid := totalWeight >= 1.0-epsilon && totalWeight <= 1.0+epsilon
+
+	if weightsValid {
+		fmt.Println("✅ Weights validation PASSED: Category weights add up to 100%")
+	} else {
+		fmt.Printf("❌ Weights validation FAILED: Category weights add up to %.0f%%, expected 100%%\n", totalWeight*100)
+	}
+
+	fmt.Println()
+	fmt.Println("=== Threshold Ranges Validation ===")
+
+	// Display the current thresholds
+	fmt.Printf("Global Thresholds:\n")
+	fmt.Printf("Green:  %d-%d\n", leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max)
+	fmt.Printf("Yellow: %d-%d\n", leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max)
+	fmt.Printf("Red:    %d-%d\n", leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max)
+	fmt.Println()
+
+	// Validate thresholds
+	thresholdsValid := true
+	var errors []string
+
+	// Validate global thresholds
+	// 1. Check that min <= max for each range
+	if leversConfig.Global.Thresholds.Green.Min > leversConfig.Global.Thresholds.Green.Max {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Green threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max))
+	}
+
+	if leversConfig.Global.Thresholds.Yellow.Min > leversConfig.Global.Thresholds.Yellow.Max {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Yellow threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max))
+	}
+
+	if leversConfig.Global.Thresholds.Red.Min > leversConfig.Global.Thresholds.Red.Max {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Red threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max))
+	}
+
+	// 2. Check that ranges don't overlap
+	if leversConfig.Global.Thresholds.Yellow.Max >= leversConfig.Global.Thresholds.Green.Min {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Yellow threshold max (%d) must be less than Green threshold min (%d)",
+			leversConfig.Global.Thresholds.Yellow.Max, leversConfig.Global.Thresholds.Green.Min))
+	}
+
+	if leversConfig.Global.Thresholds.Red.Max >= leversConfig.Global.Thresholds.Yellow.Min {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Red threshold max (%d) must be less than Yellow threshold min (%d)",
+			leversConfig.Global.Thresholds.Red.Max, leversConfig.Global.Thresholds.Yellow.Min))
+	}
+
+	// 3. Check that ranges cover the entire range from 0 to 100
+	if leversConfig.Global.Thresholds.Red.Min > 0 {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Red threshold min (%d) should be 0 to cover the entire range",
+			leversConfig.Global.Thresholds.Red.Min))
+	}
+
+	if leversConfig.Global.Thresholds.Green.Max < 100 {
+		thresholdsValid = false
+		errors = append(errors, fmt.Sprintf("Green threshold max (%d) should be 100 to cover the entire range",
+			leversConfig.Global.Thresholds.Green.Max))
+	}
+
+	// Also validate category-specific thresholds if they exist
+	if len(leversConfig.Weights.CategoryThresholds) > 0 {
+		fmt.Println("Category-Specific Thresholds:")
+
+		for category, thresholds := range leversConfig.Weights.CategoryThresholds {
+			fmt.Printf("%s:\n", category)
+			fmt.Printf("  Green:  %d-%d\n", thresholds.Green.Min, thresholds.Green.Max)
+			fmt.Printf("  Yellow: %d-%d\n", thresholds.Yellow.Min, thresholds.Yellow.Max)
+			fmt.Printf("  Red:    %d-%d\n", thresholds.Red.Min, thresholds.Red.Max)
+
+			// 1. Check that min <= max for each range
+			if thresholds.Green.Min > thresholds.Green.Max {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Green threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Green.Min, thresholds.Green.Max))
+			}
+
+			if thresholds.Yellow.Min > thresholds.Yellow.Max {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Yellow threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Yellow.Min, thresholds.Yellow.Max))
+			}
+
+			if thresholds.Red.Min > thresholds.Red.Max {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Red.Min, thresholds.Red.Max))
+			}
+
+			// 2. Check that ranges don't overlap
+			if thresholds.Yellow.Max >= thresholds.Green.Min {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Yellow threshold max (%d) must be less than Green threshold min (%d)",
+					category, thresholds.Yellow.Max, thresholds.Green.Min))
+			}
+
+			if thresholds.Red.Max >= thresholds.Yellow.Min {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold max (%d) must be less than Yellow threshold min (%d)",
+					category, thresholds.Red.Max, thresholds.Yellow.Min))
+			}
+
+			// 3. Check that ranges cover the entire range from 0 to 100
+			if thresholds.Red.Min > 0 {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold min (%d) should be 0 to cover the entire range",
+					category, thresholds.Red.Min))
+			}
+
+			if thresholds.Green.Max < 100 {
+				thresholdsValid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Green threshold max (%d) should be 100 to cover the entire range",
+					category, thresholds.Green.Max))
+			}
+		}
+	}
+
+	// Display threshold validation result
+	if thresholdsValid {
+		fmt.Println("✅ Thresholds validation PASSED: All threshold ranges are valid and don't overlap")
+	} else {
+		fmt.Println("❌ Thresholds validation FAILED:")
+		for _, err := range errors {
+			fmt.Printf("   - %s\n", err)
+		}
+	}
+
+	// Overall validation result
+	fmt.Println()
+	fmt.Println("=== Overall Validation Result ===")
+	if weightsValid && thresholdsValid {
+		fmt.Println("✅ All validations PASSED")
+	} else {
+		fmt.Println("❌ Some validations FAILED")
+		os.Exit(1)
+	}
+}
+
+// runValidateThresholdsCmd validates that threshold ranges are valid and don't overlap
+func runValidateThresholdsCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display the current thresholds
+	fmt.Println("Global Thresholds Validation:")
+	fmt.Println("--------------------------")
+	fmt.Printf("Green:  %d-%d\n", leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max)
+	fmt.Printf("Yellow: %d-%d\n", leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max)
+	fmt.Printf("Red:    %d-%d\n", leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max)
+	fmt.Println()
+
+	// Validate thresholds
+	valid := true
+	var errors []string
+
+	// Validate global thresholds
+	// 1. Check that min <= max for each range
+	if leversConfig.Global.Thresholds.Green.Min > leversConfig.Global.Thresholds.Green.Max {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Green threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Green.Min, leversConfig.Global.Thresholds.Green.Max))
+	}
+
+	if leversConfig.Global.Thresholds.Yellow.Min > leversConfig.Global.Thresholds.Yellow.Max {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Yellow threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Yellow.Min, leversConfig.Global.Thresholds.Yellow.Max))
+	}
+
+	if leversConfig.Global.Thresholds.Red.Min > leversConfig.Global.Thresholds.Red.Max {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Red threshold min (%d) must be less than or equal to max (%d)",
+			leversConfig.Global.Thresholds.Red.Min, leversConfig.Global.Thresholds.Red.Max))
+	}
+
+	// 2. Check that ranges don't overlap
+	if leversConfig.Global.Thresholds.Yellow.Max >= leversConfig.Global.Thresholds.Green.Min {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Yellow threshold max (%d) must be less than Green threshold min (%d)",
+			leversConfig.Global.Thresholds.Yellow.Max, leversConfig.Global.Thresholds.Green.Min))
+	}
+
+	if leversConfig.Global.Thresholds.Red.Max >= leversConfig.Global.Thresholds.Yellow.Min {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Red threshold max (%d) must be less than Yellow threshold min (%d)",
+			leversConfig.Global.Thresholds.Red.Max, leversConfig.Global.Thresholds.Yellow.Min))
+	}
+
+	// 3. Check that ranges cover the entire range from 0 to 100
+	if leversConfig.Global.Thresholds.Red.Min > 0 {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Red threshold min (%d) should be 0 to cover the entire range",
+			leversConfig.Global.Thresholds.Red.Min))
+	}
+
+	if leversConfig.Global.Thresholds.Green.Max < 100 {
+		valid = false
+		errors = append(errors, fmt.Sprintf("Green threshold max (%d) should be 100 to cover the entire range",
+			leversConfig.Global.Thresholds.Green.Max))
+	}
+
+	// Also validate category-specific thresholds if they exist
+	if len(leversConfig.Weights.CategoryThresholds) > 0 {
+		fmt.Println("Category-Specific Thresholds Validation:")
+		fmt.Println("-------------------------------------")
+
+		for category, thresholds := range leversConfig.Weights.CategoryThresholds {
+			fmt.Printf("%s:\n", category)
+			fmt.Printf("  Green:  %d-%d\n", thresholds.Green.Min, thresholds.Green.Max)
+			fmt.Printf("  Yellow: %d-%d\n", thresholds.Yellow.Min, thresholds.Yellow.Max)
+			fmt.Printf("  Red:    %d-%d\n", thresholds.Red.Min, thresholds.Red.Max)
+
+			// 1. Check that min <= max for each range
+			if thresholds.Green.Min > thresholds.Green.Max {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Green threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Green.Min, thresholds.Green.Max))
+			}
+
+			if thresholds.Yellow.Min > thresholds.Yellow.Max {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Yellow threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Yellow.Min, thresholds.Yellow.Max))
+			}
+
+			if thresholds.Red.Min > thresholds.Red.Max {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold min (%d) must be less than or equal to max (%d)",
+					category, thresholds.Red.Min, thresholds.Red.Max))
+			}
+
+			// 2. Check that ranges don't overlap
+			if thresholds.Yellow.Max >= thresholds.Green.Min {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Yellow threshold max (%d) must be less than Green threshold min (%d)",
+					category, thresholds.Yellow.Max, thresholds.Green.Min))
+			}
+
+			if thresholds.Red.Max >= thresholds.Yellow.Min {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold max (%d) must be less than Yellow threshold min (%d)",
+					category, thresholds.Red.Max, thresholds.Yellow.Min))
+			}
+
+			// 3. Check that ranges cover the entire range from 0 to 100
+			if thresholds.Red.Min > 0 {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Red threshold min (%d) should be 0 to cover the entire range",
+					category, thresholds.Red.Min))
+			}
+
+			if thresholds.Green.Max < 100 {
+				valid = false
+				errors = append(errors, fmt.Sprintf("Category '%s': Green threshold max (%d) should be 100 to cover the entire range",
+					category, thresholds.Green.Max))
+			}
+		}
+	}
+
+	fmt.Println()
+
+	// Display validation result
+	if valid {
+		fmt.Println("✅ Validation PASSED: All threshold ranges are valid and don't overlap")
+	} else {
+		fmt.Println("❌ Validation FAILED:")
+		for _, err := range errors {
+			fmt.Printf("   - %s\n", err)
+		}
+		fmt.Println()
+		fmt.Println("Threshold ranges should follow these rules:")
+		fmt.Println("  1. Min must be less than or equal to Max for each range")
+		fmt.Println("  2. Ranges must not overlap (Red.Max < Yellow.Min, Yellow.Max < Green.Min)")
+		fmt.Println("  3. Ranges should cover the entire range from 0 to 100")
+		fmt.Println()
+		fmt.Println("Example of valid threshold ranges:")
+		fmt.Println("  Green:  80-100")
+		fmt.Println("  Yellow: 60-79")
+		fmt.Println("  Red:    0-59")
 		os.Exit(1)
 	}
 }

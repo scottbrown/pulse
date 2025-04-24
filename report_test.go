@@ -54,9 +54,18 @@ func TestReportGenerator(t *testing.T) {
 	leversConfig := &LeversConfig{
 		Global: Global{
 			Thresholds: Thresholds{
-				Green:  80,
-				Yellow: 60,
-				Red:    0,
+				Green: ThresholdRange{
+					Min: 80,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 60,
+					Max: 79,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 59,
+				},
 			},
 		},
 		Weights: Weights{

@@ -73,9 +73,18 @@ func TestScoreCalculator(t *testing.T) {
 	leversConfig := &LeversConfig{
 		Global: Global{
 			Thresholds: Thresholds{
-				Green:  80,
-				Yellow: 60,
-				Red:    0,
+				Green: ThresholdRange{
+					Min: 80,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 60,
+					Max: 79,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 59,
+				},
 			},
 		},
 		Weights: Weights{
@@ -85,9 +94,18 @@ func TestScoreCalculator(t *testing.T) {
 			},
 			CategoryThresholds: CategoryThresholds{
 				"test_cat2": Thresholds{
-					Green:  85,
-					Yellow: 70,
-					Red:    0,
+					Green: ThresholdRange{
+						Min: 85,
+						Max: 100,
+					},
+					Yellow: ThresholdRange{
+						Min: 70,
+						Max: 84,
+					},
+					Red: ThresholdRange{
+						Min: 0,
+						Max: 69,
+					},
 				},
 			},
 		},
