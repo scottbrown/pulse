@@ -163,7 +163,7 @@ func TestScoreCalculator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to calculate category score: %v", err)
 	}
-	if categoryScore.Score != 85 { // Average of 95 and 75
+	if categoryScore.Score != 85 { // Median of 95 and 75
 		t.Errorf("Expected category score 85, got %d", categoryScore.Score)
 	}
 	if categoryScore.Status != Green {
@@ -191,9 +191,10 @@ func TestScoreCalculator(t *testing.T) {
 		t.Fatalf("Failed to calculate overall score: %v", err)
 	}
 
-	// Expected overall score: (85 * 0.6) + (95 * 0.4) = 89
-	if overallScore.Score != 89 {
-		t.Errorf("Expected overall score 89, got %d", overallScore.Score)
+	// Expected overall score: weighted median of 85 (weight 0.6) and 95 (weight 0.4) = 85
+	// Since 0.6 > 0.5, the weighted median is 85
+	if overallScore.Score != 85 {
+		t.Errorf("Expected overall score 85, got %d", overallScore.Score)
 	}
 	if overallScore.Status != Green {
 		t.Errorf("Expected overall status Green, got %s", overallScore.Status)

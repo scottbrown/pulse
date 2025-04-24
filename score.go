@@ -2,6 +2,7 @@ package pulse
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -105,6 +106,29 @@ func determineStatus(score int, thresholds Thresholds) TrafficLightStatus {
 	}
 }
 
+// calculateMedian calculates the median value from a slice of integers
+func calculateMedian(values []int) int {
+	if len(values) == 0 {
+		return 0
+	}
+
+	// Create a copy of the slice to avoid modifying the original
+	valuesCopy := make([]int, len(values))
+	copy(valuesCopy, values)
+
+	// Sort the values
+	sort.Ints(valuesCopy)
+
+	// Find the median
+	middle := len(valuesCopy) / 2
+	if len(valuesCopy)%2 == 0 {
+		// Even number of elements, average the two middle values
+		return (valuesCopy[middle-1] + valuesCopy[middle]) / 2
+	}
+	// Odd number of elements, return the middle value
+	return valuesCopy[middle]
+}
+
 // CalculateCategoryScore calculates the score for a category
 func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategoryScore, error) {
 	// Get the category
@@ -121,36 +145,90 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 
 	// Calculate scores for each metric
 	var metricScores []MetricScore
-	var totalScore int
+	var scores []int
 	for _, metric := range categoryMetrics {
 		metricScore, err := s.CalculateMetricScore(metric)
 		if err != nil {
 			return nil, err
 		}
 		metricScores = append(metricScores, *metricScore)
-		totalScore += metricScore.Score
+		scores = append(scores, metricScore.Score)
 	}
 
-	// Calculate average score
-	averageScore := totalScore / len(metricScores)
+	// Calculate median score
+	medianScore := calculateMedian(scores)
 
 	// Determine status
 	var status TrafficLightStatus
 
 	// Check if there are category-specific thresholds
 	if categoryThresholds, exists := s.metricsProcessor.leversConfig.Weights.CategoryThresholds[categoryID]; exists {
-		status = determineStatus(averageScore, categoryThresholds)
+		status = determineStatus(medianScore, categoryThresholds)
 	} else {
-		status = determineStatus(averageScore, s.metricsProcessor.leversConfig.Global.Thresholds)
+		status = determineStatus(medianScore, s.metricsProcessor.leversConfig.Global.Thresholds)
 	}
 
 	return &CategoryScore{
 		ID:      categoryID,
 		Name:    category.Name,
-		Score:   averageScore,
+		Score:   medianScore,
 		Status:  status,
 		Metrics: metricScores,
 	}, nil
+}
+
+// calculateWeightedMedian calculates the weighted median from a slice of integers and their weights
+func calculateWeightedMedian(values []int, weights []float64) int {
+	if len(values) == 0 || len(values) != len(weights) {
+		return 0
+	}
+
+	// Create pairs of values and weights
+	type weightedValue struct {
+		value  int
+		weight float64
+	}
+
+	pairs := make([]weightedValue, len(values))
+	for i := 0; i < len(values); i++ {
+		pairs[i] = weightedValue{value: values[i], weight: weights[i]}
+	}
+
+	// Sort by value
+	sort.Slice(pairs, func(i, j int) bool {
+		return pairs[i].value < pairs[j].value
+	})
+
+	// Calculate total weight
+	totalWeight := 0.0
+	for _, w := range weights {
+		totalWeight += w
+	}
+
+	if totalWeight <= 0 {
+		// If total weight is zero or negative, return simple median
+		return calculateMedian(values)
+	}
+
+	// Find the weighted median
+	halfWeight := totalWeight / 2
+	cumulativeWeight := 0.0
+
+	for i, pair := range pairs {
+		cumulativeWeight += pair.weight
+
+		if cumulativeWeight > halfWeight {
+			// Found the weighted median
+			return pair.value
+		} else if cumulativeWeight == halfWeight && i < len(pairs)-1 {
+			// If we're exactly at half the weight and not at the last element,
+			// the weighted median is the average of this value and the next
+			return (pair.value + pairs[i+1].value) / 2
+		}
+	}
+
+	// If we get here, return the last value
+	return pairs[len(pairs)-1].value
 }
 
 // CalculateOverallScore calculates the overall security posture score
@@ -163,8 +241,8 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 
 	// Calculate scores for each category
 	var categoryScores []CategoryScore
-	var weightedScoreSum float64
-	var weightSum float64
+	var scores []int
+	var weights []float64
 
 	for _, category := range categories {
 		categoryScore, err := s.CalculateCategoryScore(category.ID)
@@ -185,26 +263,16 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 			weight = 1.0 / float64(len(categories))
 		}
 
-		weightedScoreSum += float64(categoryScore.Score) * weight
-		weightSum += weight
+		scores = append(scores, categoryScore.Score)
+		weights = append(weights, weight)
 	}
 
 	if len(categoryScores) == 0 {
 		return nil, fmt.Errorf("no categories with metrics found")
 	}
 
-	// Calculate weighted average score
-	var overallScore int
-	if weightSum > 0 {
-		overallScore = int(weightedScoreSum / weightSum)
-	} else {
-		// Fallback to simple average if weights sum to 0
-		var totalScore int
-		for _, cs := range categoryScores {
-			totalScore += cs.Score
-		}
-		overallScore = totalScore / len(categoryScores)
-	}
+	// Calculate weighted median score
+	overallScore := calculateWeightedMedian(scores, weights)
 
 	// Determine status
 	status := determineStatus(overallScore, s.metricsProcessor.leversConfig.Global.Thresholds)
