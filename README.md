@@ -1,3 +1,5 @@
+![Pulse](logo.small.png)
+
 # Pulse
 
 A Risk and Performance measurement framework CLI application for security programs.
