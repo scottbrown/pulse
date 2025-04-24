@@ -84,6 +84,52 @@ func main() {
 		Long:  `List all available metrics or categories.`,
 	}
 
+	// Add levers command
+	leversCmd := &cobra.Command{
+		Use:   "levers",
+		Short: "View configuration levers",
+		Long:  `View configuration levers that affect scoring and reporting.`,
+	}
+
+	// Add levers subcommands
+	allLeversCmd := &cobra.Command{
+		Use:   "all",
+		Short: "View all configuration levers",
+		Long:  `View all configuration levers including global weights, category weights, global thresholds, and scoring bands.`,
+		Run:   runViewAllLeversCmd,
+	}
+
+	globalThresholdsCmd := &cobra.Command{
+		Use:   "global-thresholds",
+		Short: "View global thresholds",
+		Long:  `View global thresholds for the traffic light model (green, yellow, red).`,
+		Run:   runViewGlobalThresholdsCmd,
+	}
+
+	scoringBandsCmd := &cobra.Command{
+		Use:   "scoring-bands",
+		Short: "View scoring bands",
+		Long:  `View scoring bands used for calculating scores.`,
+		Run:   runViewScoringBandsCmd,
+	}
+
+	categoryWeightsCmd := &cobra.Command{
+		Use:   "category-weights",
+		Short: "View category weights",
+		Long:  `View weights assigned to each category for overall score calculation.`,
+		Run:   runViewCategoryWeightsCmd,
+	}
+
+	categoryThresholdsCmd := &cobra.Command{
+		Use:   "category-thresholds",
+		Short: "View category-specific thresholds",
+		Long:  `View category-specific thresholds for the traffic light model.`,
+		Run:   runViewCategoryThresholdsCmd,
+	}
+
+	// Add subcommands to levers command
+	leversCmd.AddCommand(allLeversCmd, globalThresholdsCmd, scoringBandsCmd, categoryWeightsCmd, categoryThresholdsCmd)
+
 	// Add metrics subcommand
 	metricsCmd := &cobra.Command{
 		Use:   "metrics",
@@ -150,7 +196,7 @@ func main() {
 	}
 
 	// Add commands to root command
-	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, metricsCmd, initCmd, versionCmd)
+	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, metricsCmd, leversCmd, initCmd, versionCmd)
 
 	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {
@@ -447,4 +493,154 @@ func runInitCmd(cmd *cobra.Command, args []string) {
 	fmt.Printf("Default configuration files created in:\n")
 	fmt.Printf("  Config directory: %s\n", targetConfigDir)
 	fmt.Printf("  Data directory: %s\n", targetDataDir)
+}
+
+// runViewAllLeversCmd displays all configuration levers
+func runViewAllLeversCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display global thresholds
+	fmt.Println("Global Thresholds:")
+	fmt.Println("-----------------")
+	fmt.Printf("Green:  %d\n", leversConfig.Global.Thresholds.Green)
+	fmt.Printf("Yellow: %d\n", leversConfig.Global.Thresholds.Yellow)
+	fmt.Printf("Red:    %d\n", leversConfig.Global.Thresholds.Red)
+	fmt.Println()
+
+	// Display global scoring bands
+	fmt.Println("Global Scoring Bands:")
+	fmt.Println("--------------------")
+	fmt.Printf("Band 5: %d\n", leversConfig.Global.ScoringBands.Band5)
+	fmt.Printf("Band 4: %d\n", leversConfig.Global.ScoringBands.Band4)
+	fmt.Printf("Band 3: %d\n", leversConfig.Global.ScoringBands.Band3)
+	fmt.Printf("Band 2: %d\n", leversConfig.Global.ScoringBands.Band2)
+	fmt.Printf("Band 1: %d\n", leversConfig.Global.ScoringBands.Band1)
+	fmt.Println()
+
+	// Display category weights
+	fmt.Println("Category Weights:")
+	fmt.Println("----------------")
+	if len(leversConfig.Weights.Categories) == 0 {
+		fmt.Println("No category weights defined.")
+	} else {
+		for category, weight := range leversConfig.Weights.Categories {
+			fmt.Printf("%s: %.2f\n", category, weight)
+		}
+	}
+	fmt.Println()
+
+	// Display category-specific thresholds
+	fmt.Println("Category-Specific Thresholds:")
+	fmt.Println("----------------------------")
+	if len(leversConfig.Weights.CategoryThresholds) == 0 {
+		fmt.Println("No category-specific thresholds defined.")
+	} else {
+		for category, thresholds := range leversConfig.Weights.CategoryThresholds {
+			fmt.Printf("%s:\n", category)
+			fmt.Printf("  Green:  %d\n", thresholds.Green)
+			fmt.Printf("  Yellow: %d\n", thresholds.Yellow)
+			fmt.Printf("  Red:    %d\n", thresholds.Red)
+		}
+	}
+}
+
+// runViewGlobalThresholdsCmd displays global thresholds
+func runViewGlobalThresholdsCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display global thresholds
+	fmt.Println("Global Thresholds:")
+	fmt.Println("-----------------")
+	fmt.Printf("Green:  %d\n", leversConfig.Global.Thresholds.Green)
+	fmt.Printf("Yellow: %d\n", leversConfig.Global.Thresholds.Yellow)
+	fmt.Printf("Red:    %d\n", leversConfig.Global.Thresholds.Red)
+}
+
+// runViewScoringBandsCmd displays scoring bands
+func runViewScoringBandsCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display global scoring bands
+	fmt.Println("Global Scoring Bands:")
+	fmt.Println("--------------------")
+	fmt.Printf("Band 5: %d (90-100 points)\n", leversConfig.Global.ScoringBands.Band5)
+	fmt.Printf("Band 4: %d (80-89 points)\n", leversConfig.Global.ScoringBands.Band4)
+	fmt.Printf("Band 3: %d (70-79 points)\n", leversConfig.Global.ScoringBands.Band3)
+	fmt.Printf("Band 2: %d (60-69 points)\n", leversConfig.Global.ScoringBands.Band2)
+	fmt.Printf("Band 1: %d (0-59 points)\n", leversConfig.Global.ScoringBands.Band1)
+}
+
+// runViewCategoryWeightsCmd displays category weights
+func runViewCategoryWeightsCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display category weights
+	fmt.Println("Category Weights:")
+	fmt.Println("----------------")
+	if len(leversConfig.Weights.Categories) == 0 {
+		fmt.Println("No category weights defined.")
+	} else {
+		for category, weight := range leversConfig.Weights.Categories {
+			fmt.Printf("%s: %.2f\n", category, weight)
+		}
+	}
+}
+
+// runViewCategoryThresholdsCmd displays category-specific thresholds
+func runViewCategoryThresholdsCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Load levers configuration
+	leversConfig, err := configLoader.LoadLeversConfig()
+	if err != nil {
+		fmt.Printf("Error loading levers config: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display category-specific thresholds
+	fmt.Println("Category-Specific Thresholds:")
+	fmt.Println("----------------------------")
+	if len(leversConfig.Weights.CategoryThresholds) == 0 {
+		fmt.Println("No category-specific thresholds defined.")
+	} else {
+		for category, thresholds := range leversConfig.Weights.CategoryThresholds {
+			fmt.Printf("%s:\n", category)
+			fmt.Printf("  Green:  %d\n", thresholds.Green)
+			fmt.Printf("  Yellow: %d\n", thresholds.Yellow)
+			fmt.Printf("  Red:    %d\n", thresholds.Red)
+		}
+	}
 }
