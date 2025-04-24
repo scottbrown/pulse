@@ -91,8 +91,8 @@ func TestReportGenerator(t *testing.T) {
 	// Create a MetricsProcessor
 	processor := NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
 
-	// Create a ScoreCalculator
-	calculator := NewScoreCalculator(processor)
+	// Create a ScoreCalculator with median scoring (default)
+	calculator := NewScoreCalculator(processor, MedianScoring)
 
 	// Create a ReportGenerator
 	generator := NewReportGenerator(calculator)

@@ -123,15 +123,16 @@ func TestScoreCalculator(t *testing.T) {
 	// Create a MetricsProcessor
 	processor := NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
 
-	// Create a ScoreCalculator
-	calculator := NewScoreCalculator(processor)
+	// Create ScoreCalculators for both scoring methods
+	medianCalculator := NewScoreCalculator(processor, MedianScoring)
+	averageCalculator := NewScoreCalculator(processor, AverageScoring)
 
 	// Test CalculateMetricScore for KPI
 	kpiMetric := Metric{
 		Reference: "test_cat.KPI.test_kpi",
 		Value:     3,
 	}
-	kpiScore, err := calculator.CalculateMetricScore(kpiMetric)
+	kpiScore, err := medianCalculator.CalculateMetricScore(kpiMetric)
 	if err != nil {
 		t.Fatalf("Failed to calculate KPI score: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestScoreCalculator(t *testing.T) {
 		Reference: "test_cat.KRI.test_kri",
 		Value:     4,
 	}
-	kriScore, err := calculator.CalculateMetricScore(kriMetric)
+	kriScore, err := medianCalculator.CalculateMetricScore(kriMetric)
 	if err != nil {
 		t.Fatalf("Failed to calculate KRI score: %v", err)
 	}
@@ -158,8 +159,8 @@ func TestScoreCalculator(t *testing.T) {
 		t.Errorf("Expected KRI status Yellow, got %s", kriScore.Status)
 	}
 
-	// Test CalculateCategoryScore
-	categoryScore, err := calculator.CalculateCategoryScore("test_cat")
+	// Test CalculateCategoryScore with median scoring
+	categoryScore, err := medianCalculator.CalculateCategoryScore("test_cat")
 	if err != nil {
 		t.Fatalf("Failed to calculate category score: %v", err)
 	}
@@ -173,8 +174,8 @@ func TestScoreCalculator(t *testing.T) {
 		t.Errorf("Expected 2 metrics in category score, got %d", len(categoryScore.Metrics))
 	}
 
-	// Test CalculateCategoryScore with category-specific thresholds
-	categoryScore2, err := calculator.CalculateCategoryScore("test_cat2")
+	// Test CalculateCategoryScore with category-specific thresholds using median scoring
+	categoryScore2, err := medianCalculator.CalculateCategoryScore("test_cat2")
 	if err != nil {
 		t.Fatalf("Failed to calculate category 2 score: %v", err)
 	}
@@ -185,8 +186,8 @@ func TestScoreCalculator(t *testing.T) {
 		t.Errorf("Expected category 2 status Green, got %s", categoryScore2.Status)
 	}
 
-	// Test CalculateOverallScore
-	overallScore, err := calculator.CalculateOverallScore()
+	// Test CalculateOverallScore with median scoring
+	overallScore, err := medianCalculator.CalculateOverallScore()
 	if err != nil {
 		t.Fatalf("Failed to calculate overall score: %v", err)
 	}
@@ -201,6 +202,26 @@ func TestScoreCalculator(t *testing.T) {
 	}
 	if len(overallScore.Categories) != 2 {
 		t.Errorf("Expected 2 categories in overall score, got %d", len(overallScore.Categories))
+	}
+
+	// Test CalculateCategoryScore with average scoring
+	avgCategoryScore, err := averageCalculator.CalculateCategoryScore("test_cat")
+	if err != nil {
+		t.Fatalf("Failed to calculate category score with average scoring: %v", err)
+	}
+	if avgCategoryScore.Score != 85 { // Average of 95 and 75
+		t.Errorf("Expected average category score 85, got %d", avgCategoryScore.Score)
+	}
+
+	// Test CalculateOverallScore with average scoring
+	avgOverallScore, err := averageCalculator.CalculateOverallScore()
+	if err != nil {
+		t.Fatalf("Failed to calculate overall score with average scoring: %v", err)
+	}
+
+	// Expected overall score: (85 * 0.6) + (95 * 0.4) = 89
+	if avgOverallScore.Score != 89 {
+		t.Errorf("Expected average overall score 89, got %d", avgOverallScore.Score)
 	}
 
 	// Test determineStatus

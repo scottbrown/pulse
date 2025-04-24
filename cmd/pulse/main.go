@@ -18,13 +18,14 @@ var (
 )
 
 var (
-	configDir  string
-	dataDir    string
-	category   string
-	format     string
-	outputFile string
-	metricRef  string
-	metricVal  string
+	configDir     string
+	dataDir       string
+	category      string
+	format        string
+	outputFile    string
+	metricRef     string
+	metricVal     string
+	scoringMethod string
 )
 
 func main() {
@@ -61,6 +62,7 @@ func main() {
 	reportCmd.Flags().StringVarP(&category, "category", "c", "", "Generate report for a specific category")
 	reportCmd.Flags().StringVarP(&format, "format", "f", "text", "Report format (text or json)")
 	reportCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: stdout)")
+	reportCmd.Flags().StringVar(&scoringMethod, "scoring-method", "median", "Scoring method to use (median or average)")
 
 	// Add update command
 	updateCmd := &cobra.Command{
@@ -183,8 +185,16 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 	// Initialize the metrics processor
 	metricsProcessor := pulse.NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
 
-	// Initialize the score calculator
-	scoreCalculator := pulse.NewScoreCalculator(metricsProcessor)
+	// Initialize the score calculator with the specified scoring method
+	var scoringMethodEnum pulse.ScoringMethod
+	if scoringMethod == "average" {
+		scoringMethodEnum = pulse.AverageScoring
+	} else {
+		// Default to median scoring
+		scoringMethodEnum = pulse.MedianScoring
+	}
+
+	scoreCalculator := pulse.NewScoreCalculator(metricsProcessor, scoringMethodEnum)
 
 	// Initialize the report generator
 	reportGenerator := pulse.NewReportGenerator(scoreCalculator)

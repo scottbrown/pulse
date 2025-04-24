@@ -6,15 +6,32 @@ import (
 	"strings"
 )
 
+// ScoringMethod defines the method used for score calculation
+type ScoringMethod string
+
+const (
+	// MedianScoring uses median for category scores and weighted median for overall score
+	MedianScoring ScoringMethod = "median"
+	// AverageScoring uses average for category scores and weighted average for overall score
+	AverageScoring ScoringMethod = "average"
+)
+
 // ScoreCalculator handles calculation of scores for metrics and categories
 type ScoreCalculator struct {
 	metricsProcessor *MetricsProcessor
+	scoringMethod    ScoringMethod
 }
 
 // NewScoreCalculator creates a new ScoreCalculator
-func NewScoreCalculator(metricsProcessor *MetricsProcessor) *ScoreCalculator {
+func NewScoreCalculator(metricsProcessor *MetricsProcessor, scoringMethod ScoringMethod) *ScoreCalculator {
+	// Default to median scoring if not specified
+	if scoringMethod == "" {
+		scoringMethod = MedianScoring
+	}
+
 	return &ScoreCalculator{
 		metricsProcessor: metricsProcessor,
+		scoringMethod:    scoringMethod,
 	}
 }
 
@@ -106,6 +123,20 @@ func determineStatus(score int, thresholds Thresholds) TrafficLightStatus {
 	}
 }
 
+// calculateAverage calculates the average value from a slice of integers
+func calculateAverage(values []int) int {
+	if len(values) == 0 {
+		return 0
+	}
+
+	sum := 0
+	for _, v := range values {
+		sum += v
+	}
+
+	return sum / len(values)
+}
+
 // calculateMedian calculates the median value from a slice of integers
 func calculateMedian(values []int) int {
 	if len(values) == 0 {
@@ -146,6 +177,7 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 	// Calculate scores for each metric
 	var metricScores []MetricScore
 	var scores []int
+	var totalScore int
 	for _, metric := range categoryMetrics {
 		metricScore, err := s.CalculateMetricScore(metric)
 		if err != nil {
@@ -153,28 +185,56 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 		}
 		metricScores = append(metricScores, *metricScore)
 		scores = append(scores, metricScore.Score)
+		totalScore += metricScore.Score
 	}
 
-	// Calculate median score
-	medianScore := calculateMedian(scores)
+	// Calculate score based on scoring method
+	var categoryScore int
+	if s.scoringMethod == MedianScoring {
+		categoryScore = calculateMedian(scores)
+	} else {
+		categoryScore = calculateAverage(scores)
+	}
 
 	// Determine status
 	var status TrafficLightStatus
 
 	// Check if there are category-specific thresholds
 	if categoryThresholds, exists := s.metricsProcessor.leversConfig.Weights.CategoryThresholds[categoryID]; exists {
-		status = determineStatus(medianScore, categoryThresholds)
+		status = determineStatus(categoryScore, categoryThresholds)
 	} else {
-		status = determineStatus(medianScore, s.metricsProcessor.leversConfig.Global.Thresholds)
+		status = determineStatus(categoryScore, s.metricsProcessor.leversConfig.Global.Thresholds)
 	}
 
 	return &CategoryScore{
 		ID:      categoryID,
 		Name:    category.Name,
-		Score:   medianScore,
+		Score:   categoryScore,
 		Status:  status,
 		Metrics: metricScores,
 	}, nil
+}
+
+// calculateWeightedAverage calculates the weighted average from a slice of integers and their weights
+func calculateWeightedAverage(values []int, weights []float64) int {
+	if len(values) == 0 || len(values) != len(weights) {
+		return 0
+	}
+
+	var weightedSum float64
+	var totalWeight float64
+
+	for i := 0; i < len(values); i++ {
+		weightedSum += float64(values[i]) * weights[i]
+		totalWeight += weights[i]
+	}
+
+	if totalWeight <= 0 {
+		// If total weight is zero or negative, return simple average
+		return calculateAverage(values)
+	}
+
+	return int(weightedSum / totalWeight)
 }
 
 // calculateWeightedMedian calculates the weighted median from a slice of integers and their weights
@@ -271,8 +331,13 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 		return nil, fmt.Errorf("no categories with metrics found")
 	}
 
-	// Calculate weighted median score
-	overallScore := calculateWeightedMedian(scores, weights)
+	// Calculate overall score based on scoring method
+	var overallScore int
+	if s.scoringMethod == MedianScoring {
+		overallScore = calculateWeightedMedian(scores, weights)
+	} else {
+		overallScore = calculateWeightedAverage(scores, weights)
+	}
 
 	// Determine status
 	status := determineStatus(overallScore, s.metricsProcessor.leversConfig.Global.Thresholds)
