@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -267,7 +268,7 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 
 	// Output the report
 	if outputFile != "" {
-		err := os.WriteFile(outputFile, []byte(reportContent), 0644)
+		err := os.WriteFile(outputFile, []byte(reportContent), 0600)
 		if err != nil {
 			fmt.Printf("Error writing report to file: %v\n", err)
 			os.Exit(1)
@@ -304,10 +305,22 @@ func runUpdateCmd(cmd *cobra.Command, args []string) {
 	// Initialize the metrics processor
 	metricsProcessor := pulse.NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
 
-	// Parse the metric value
+	// Validate metric reference format
+	if !strings.Contains(metricRef, ".") || len(strings.Split(metricRef, ".")) != 3 {
+		fmt.Printf("Error: Invalid metric reference format. Expected format: category.TYPE.name\n")
+		os.Exit(1)
+	}
+
+	// Parse and validate the metric value
 	value, err := strconv.ParseFloat(metricVal, 64)
 	if err != nil {
 		fmt.Printf("Error parsing metric value: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check for reasonable bounds on the value
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < -1000000 || value > 1000000 {
+		fmt.Printf("Error: Metric value out of reasonable bounds\n")
 		os.Exit(1)
 	}
 
@@ -467,7 +480,7 @@ func runInitCmd(cmd *cobra.Command, args []string) {
 		targetDir := args[0]
 
 		// Create the directory if it doesn't exist
-		if err := os.MkdirAll(targetDir, 0755); err != nil {
+		if err := os.MkdirAll(targetDir, 0700); err != nil {
 			fmt.Printf("Error creating directory %s: %v\n", targetDir, err)
 			os.Exit(1)
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // MetricsProcessor handles processing and analysis of metrics
@@ -110,9 +111,28 @@ func (m *MetricsProcessor) GetAllCategories() []Category {
 
 // isValidReference checks if a metric reference has the correct format
 func isValidReference(reference string) bool {
+	// Check for empty or overly long references
+	if reference == "" || len(reference) > 100 {
+		return false
+	}
+
+	// Check for invalid characters
+	for _, char := range reference {
+		if !unicode.IsLetter(char) && !unicode.IsDigit(char) && char != '.' && char != '_' && char != '-' {
+			return false
+		}
+	}
+
 	parts := strings.Split(reference, ".")
 	if len(parts) != 3 {
 		return false
+	}
+
+	// Check if each part is not empty
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
 	}
 
 	// Check if the second part is KPI or KRI

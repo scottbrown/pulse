@@ -1,13 +1,18 @@
 package pulse
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
+
+// Global mutex for file operations
+var fileLock sync.Mutex
 
 // ConfigLoader handles loading and parsing of configuration files
 type ConfigLoader struct {
@@ -23,12 +28,37 @@ func NewConfigLoader(configDir, dataDir string) *ConfigLoader {
 	}
 }
 
+// validateYAML performs basic validation on YAML data before parsing
+func validateYAML(data []byte) error {
+	// Check for YAML document markers that could indicate custom types
+	if bytes.Contains(data, []byte("!!")) {
+		return fmt.Errorf("potentially unsafe YAML: custom type tags detected")
+	}
+
+	// Check for YAML anchors and aliases that could be used for exploits
+	if bytes.Contains(data, []byte("&")) || bytes.Contains(data, []byte("*")) {
+		return fmt.Errorf("potentially unsafe YAML: anchors or aliases detected")
+	}
+
+	// Check for excessively large files
+	if len(data) > 10*1024*1024 { // 10MB limit
+		return fmt.Errorf("YAML file too large: %d bytes", len(data))
+	}
+
+	return nil
+}
+
 // LoadMetricsConfig loads the metrics configuration from the YAML file
 func (c *ConfigLoader) LoadMetricsConfig() (*MetricsConfig, error) {
 	path := filepath.Join(c.ConfigDir, "metrics.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read metrics config file: %w", err)
+	}
+
+	// Validate YAML before parsing
+	if err := validateYAML(data); err != nil {
+		return nil, fmt.Errorf("invalid metrics config file: %w", err)
 	}
 
 	var config MetricsConfig
@@ -45,6 +75,11 @@ func (c *ConfigLoader) LoadLeversConfig() (*LeversConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read levers config file: %w", err)
+	}
+
+	// Validate YAML before parsing
+	if err := validateYAML(data); err != nil {
+		return nil, fmt.Errorf("invalid levers config file: %w", err)
 	}
 
 	var config LeversConfig
@@ -101,6 +136,12 @@ func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
 			continue
 		}
 
+		// Validate YAML before parsing
+		if err := validateYAML(data); err != nil {
+			parseErrors = append(parseErrors, fmt.Sprintf("invalid metrics file %s: %v", file.Name(), err))
+			continue
+		}
+
 		var fileMetrics MetricsData
 		if err := yaml.Unmarshal(data, &fileMetrics); err != nil {
 			parseErrors = append(parseErrors, fmt.Sprintf("failed to parse metrics file %s: %v", file.Name(), err))
@@ -132,6 +173,11 @@ func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
 		return nil, fmt.Errorf("failed to read metrics data file: %w", err)
 	}
 
+	// Validate YAML before parsing
+	if err := validateYAML(data); err != nil {
+		return nil, fmt.Errorf("invalid metrics data file: %w", err)
+	}
+
 	var metricsData MetricsData
 	if err := yaml.Unmarshal(data, &metricsData); err != nil {
 		return nil, fmt.Errorf("failed to parse metrics data file: %w", err)
@@ -147,10 +193,14 @@ func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
 
 // SaveMetricsData saves the metrics data to YAML files in the metrics directory
 func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
+	// Use global mutex to prevent concurrent access to file operations
+	fileLock.Lock()
+	defer fileLock.Unlock()
+
 	metricsDir := filepath.Join(c.DataDir, "metrics")
 
 	// Ensure metrics directory exists
-	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+	if err := os.MkdirAll(metricsDir, 0700); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
@@ -184,8 +234,16 @@ func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
 			return fmt.Errorf("failed to marshal metrics data for %s: %w", fileName, err)
 		}
 
-		if err := os.WriteFile(filePath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write metrics data file %s: %w", fileName, err)
+		// Use atomic file write pattern
+		tempFile := filePath + ".tmp"
+		if err := os.WriteFile(tempFile, data, 0600); err != nil {
+			return fmt.Errorf("failed to write temporary metrics data file %s: %w", fileName, err)
+		}
+
+		if err := os.Rename(tempFile, filePath); err != nil {
+			// Try to clean up the temp file
+			os.Remove(tempFile)
+			return fmt.Errorf("failed to rename temporary metrics data file %s: %w", fileName, err)
 		}
 	}
 
@@ -194,14 +252,23 @@ func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
 
 // CreateMetricFile creates a new metric file with the given name
 func (c *ConfigLoader) CreateMetricFile(fileName string) error {
+	// Use global mutex to prevent concurrent access to file operations
+	fileLock.Lock()
+	defer fileLock.Unlock()
+
 	if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
 		fileName += ".yaml"
+	}
+
+	// Validate filename to prevent path traversal
+	if strings.Contains(fileName, "/") || strings.Contains(fileName, "\\") {
+		return fmt.Errorf("invalid filename: %s (contains path separators)", fileName)
 	}
 
 	metricsDir := filepath.Join(c.DataDir, "metrics")
 
 	// Ensure metrics directory exists
-	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+	if err := os.MkdirAll(metricsDir, 0700); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
@@ -222,8 +289,16 @@ func (c *ConfigLoader) CreateMetricFile(fileName string) error {
 		return fmt.Errorf("failed to marshal empty metrics data: %w", err)
 	}
 
-	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return fmt.Errorf("failed to create metric file %s: %w", fileName, err)
+	// Use atomic file write pattern
+	tempFile := filePath + ".tmp"
+	if err := os.WriteFile(tempFile, data, 0600); err != nil {
+		return fmt.Errorf("failed to write temporary metric file %s: %w", fileName, err)
+	}
+
+	if err := os.Rename(tempFile, filePath); err != nil {
+		// Try to clean up the temp file
+		os.Remove(tempFile)
+		return fmt.Errorf("failed to rename temporary metric file %s: %w", fileName, err)
 	}
 
 	return nil
@@ -232,11 +307,11 @@ func (c *ConfigLoader) CreateMetricFile(fileName string) error {
 // CreateDefaultConfigFiles creates default configuration files if they don't exist
 func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 	// Ensure directories exist
-	if err := os.MkdirAll(c.ConfigDir, 0755); err != nil {
+	if err := os.MkdirAll(c.ConfigDir, 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	if err := os.MkdirAll(c.DataDir, 0755); err != nil {
+	if err := os.MkdirAll(c.DataDir, 0700); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
@@ -272,7 +347,7 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
           band_2: 10
           band_1: 11`
 
-		if err := os.WriteFile(metricsConfigPath, []byte(defaultMetricsConfig), 0644); err != nil {
+		if err := os.WriteFile(metricsConfigPath, []byte(defaultMetricsConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default metrics config: %w", err)
 		}
 	}
@@ -305,14 +380,14 @@ weights:
       yellow: 70
       red: 0`
 
-		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0644); err != nil {
+		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default levers config: %w", err)
 		}
 	}
 
 	// Create metrics directory and default metrics files
 	metricsDir := filepath.Join(c.DataDir, "metrics")
-	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+	if err := os.MkdirAll(metricsDir, 0700); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
@@ -327,7 +402,7 @@ weights:
 		  value: 3
 		  timestamp: "2025-04-01T00:00:00Z"`
 
-		if err := os.WriteFile(appSecPath, []byte(appSecData), 0644); err != nil {
+		if err := os.WriteFile(appSecPath, []byte(appSecData), 0600); err != nil {
 			return fmt.Errorf("failed to create app_sec metrics file: %w", err)
 		}
 	}
@@ -343,7 +418,7 @@ weights:
 		  value: 4
 		  timestamp: "2025-04-01T00:00:00Z"`
 
-		if err := os.WriteFile(infraSecPath, []byte(infraSecData), 0644); err != nil {
+		if err := os.WriteFile(infraSecPath, []byte(infraSecData), 0600); err != nil {
 			return fmt.Errorf("failed to create infra_sec metrics file: %w", err)
 		}
 	}
@@ -359,7 +434,7 @@ weights:
 		  value: 7
 		  timestamp: "2025-04-01T00:00:00Z"`
 
-		if err := os.WriteFile(compliancePath, []byte(complianceData), 0644); err != nil {
+		if err := os.WriteFile(compliancePath, []byte(complianceData), 0600); err != nil {
 			return fmt.Errorf("failed to create compliance metrics file: %w", err)
 		}
 	}
