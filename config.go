@@ -319,33 +319,49 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 	metricsConfigPath := filepath.Join(c.ConfigDir, "metrics.yaml")
 	if _, err := os.Stat(metricsConfigPath); os.IsNotExist(err) {
 		defaultMetricsConfig := `categories:
-  - id: "app_sec"
-    name: "Application Security"
-    description: "Metrics related to application security posture"
-    kpis:
-      - id: "vuln_remediation_time"
-        name: "Vulnerability Remediation Time"
-        description: "Average time to remediate vulnerabilities"
-        unit: "days"
-        target: 30
-        scoring_bands:
-          band_5: 15
-          band_4: 30
-          band_3: 45
-          band_2: 60
-          band_1: 61
-    kris:
-      - id: "critical_vulns"
-        name: "Critical Vulnerabilities"
-        description: "Number of critical vulnerabilities"
-        unit: "count"
-        threshold: 5
-        scoring_bands:
-          band_5: 0
-          band_4: 2
-          band_3: 5
-          band_2: 10
-          band_1: 11`
+		- id: "app_sec"
+		  name: "Application Security"
+		  description: "Metrics related to application security posture"
+		  kpis:
+		    - id: "vuln_remediation_time"
+		      name: "Vulnerability Remediation Time"
+		      description: "Average time to remediate vulnerabilities"
+		      unit: "days"
+		      target: 30
+		      scoring_bands:
+		        - score: 95
+		          max: 15
+		        - score: 85
+		          min: 15
+		          max: 30
+		        - score: 75
+		          min: 30
+		          max: 45
+		        - score: 65
+		          min: 45
+		          max: 60
+		        - score: 30
+		          min: 60
+		  kris:
+		    - id: "critical_vulns"
+		      name: "Critical Vulnerabilities"
+		      description: "Number of critical vulnerabilities"
+		      unit: "count"
+		      threshold: 5
+		      scoring_bands:
+		        - score: 95
+		          max: 0
+		        - score: 85
+		          min: 0
+		          max: 2
+		        - score: 75
+		          min: 2
+		          max: 5
+		        - score: 65
+		          min: 5
+		          max: 10
+		        - score: 30
+		          min: 10`
 
 		if err := os.WriteFile(metricsConfigPath, []byte(defaultMetricsConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default metrics config: %w", err)
@@ -356,29 +372,22 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 	leversConfigPath := filepath.Join(c.ConfigDir, "levers.yaml")
 	if _, err := os.Stat(leversConfigPath); os.IsNotExist(err) {
 		defaultLeversConfig := `global:
-  thresholds:
-    green: 80
-    yellow: 60
-    red: 0
-  
-  scoring_bands:
-    band_5: 90
-    band_4: 80
-    band_3: 70
-    band_2: 60
-    band_1: 0
-  
+		thresholds:
+		  green: 80
+		  yellow: 60
+		  red: 0
+		
 weights:
-  categories:
-    "app_sec": 0.4
-    "infra_sec": 0.3
-    "compliance": 0.3
-  
-  category_thresholds:
-    "compliance":
-      green: 85
-      yellow: 70
-      red: 0`
+		categories:
+		  "app_sec": 0.4
+		  "infra_sec": 0.3
+		  "compliance": 0.3
+		
+		category_thresholds:
+		  "compliance":
+		    green: 85
+		    yellow: 70
+		    red: 0`
 
 		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default levers config: %w", err)

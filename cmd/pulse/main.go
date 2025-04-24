@@ -528,14 +528,7 @@ func runViewAllLeversCmd(cmd *cobra.Command, args []string) {
 	fmt.Printf("Red:    %d\n", leversConfig.Global.Thresholds.Red)
 	fmt.Println()
 
-	// Display global scoring bands
-	fmt.Println("Global Scoring Bands:")
-	fmt.Println("--------------------")
-	fmt.Printf("Band 5: %d\n", leversConfig.Global.ScoringBands.Band5)
-	fmt.Printf("Band 4: %d\n", leversConfig.Global.ScoringBands.Band4)
-	fmt.Printf("Band 3: %d\n", leversConfig.Global.ScoringBands.Band3)
-	fmt.Printf("Band 2: %d\n", leversConfig.Global.ScoringBands.Band2)
-	fmt.Printf("Band 1: %d\n", leversConfig.Global.ScoringBands.Band1)
+	// Note: Global scoring bands have been removed in favor of per-metric scoring bands
 	fmt.Println()
 
 	// Display category weights
@@ -587,24 +580,21 @@ func runViewGlobalThresholdsCmd(cmd *cobra.Command, args []string) {
 
 // runViewScoringBandsCmd displays scoring bands
 func runViewScoringBandsCmd(cmd *cobra.Command, args []string) {
-	// Initialize the config loader
-	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+	// Note: We don't need to load any configs since we're just showing the concept
 
-	// Load levers configuration
-	leversConfig, err := configLoader.LoadLeversConfig()
-	if err != nil {
-		fmt.Printf("Error loading levers config: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Println("Scoring Bands:")
+	fmt.Println("--------------")
+	fmt.Println("Scoring bands are now defined per-metric with min/max ranges and scores.")
+	fmt.Println("To view specific scoring bands, check the metrics configuration.")
+	fmt.Println()
 
-	// Display global scoring bands
-	fmt.Println("Global Scoring Bands:")
-	fmt.Println("--------------------")
-	fmt.Printf("Band 5: %d (90-100 points)\n", leversConfig.Global.ScoringBands.Band5)
-	fmt.Printf("Band 4: %d (80-89 points)\n", leversConfig.Global.ScoringBands.Band4)
-	fmt.Printf("Band 3: %d (70-79 points)\n", leversConfig.Global.ScoringBands.Band3)
-	fmt.Printf("Band 2: %d (60-69 points)\n", leversConfig.Global.ScoringBands.Band2)
-	fmt.Printf("Band 1: %d (0-59 points)\n", leversConfig.Global.ScoringBands.Band1)
+	// Display example of the new scoring band structure
+	fmt.Println("Example of new scoring band structure:")
+	fmt.Println("  - score: 100")
+	fmt.Println("    min: 95")
+	fmt.Println("  - score: 85")
+	fmt.Println("    max: 94")
+	fmt.Println("    min: 80")
 }
 
 // runViewCategoryWeightsCmd displays category weights

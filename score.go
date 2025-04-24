@@ -79,37 +79,78 @@ func (s *ScoreCalculator) CalculateMetricScore(metric Metric) (*MetricScore, err
 
 // calculateKPIScore calculates the score for a KPI metric
 func calculateKPIScore(value float64, kpi KPI) int {
-	// For KPIs, lower values might be better (e.g., remediation time)
-	// or higher values might be better (e.g., compliance percentage)
-	// This implementation assumes lower is better, adjust as needed
+	// For KPIs, check each scoring band to find the appropriate score
+	// Bands are expected to be ordered from highest score to lowest
 
-	if value <= float64(kpi.ScoringBands["band_5"]) {
-		return 95 // Band 5: 90-100 points (using 95 as midpoint)
-	} else if value <= float64(kpi.ScoringBands["band_4"]) {
-		return 85 // Band 4: 80-89 points (using 85 as midpoint)
-	} else if value <= float64(kpi.ScoringBands["band_3"]) {
-		return 75 // Band 3: 70-79 points (using 75 as midpoint)
-	} else if value <= float64(kpi.ScoringBands["band_2"]) {
-		return 65 // Band 2: 60-69 points (using 65 as midpoint)
-	} else {
-		return 30 // Band 1: 0-59 points (using 30 as midpoint)
+	// If no scoring bands are defined, return a default score
+	if len(kpi.ScoringBands) == 0 {
+		return 50
 	}
+
+	// Check each scoring band
+	for _, band := range kpi.ScoringBands {
+		// Check if the value falls within this band's range
+		inBand := true
+
+		// Check minimum bound if it exists
+		if band.Min != nil && value < *band.Min {
+			inBand = false
+		}
+
+		// Check maximum bound if it exists
+		if band.Max != nil && value > *band.Max {
+			inBand = false
+		}
+
+		// If the value is in this band, return the score
+		if inBand {
+			return band.Score
+		}
+	}
+
+	// If no band matches, return the lowest band's score or a default
+	if len(kpi.ScoringBands) > 0 {
+		return kpi.ScoringBands[len(kpi.ScoringBands)-1].Score
+	}
+	return 0
 }
 
 // calculateKRIScore calculates the score for a KRI metric
 func calculateKRIScore(value float64, kri KRI) int {
-	// For KRIs, lower values are typically better (e.g., number of vulnerabilities)
-	if value <= float64(kri.ScoringBands["band_5"]) {
-		return 95 // Band 5: 90-100 points (using 95 as midpoint)
-	} else if value <= float64(kri.ScoringBands["band_4"]) {
-		return 85 // Band 4: 80-89 points (using 85 as midpoint)
-	} else if value <= float64(kri.ScoringBands["band_3"]) {
-		return 75 // Band 3: 70-79 points (using 75 as midpoint)
-	} else if value <= float64(kri.ScoringBands["band_2"]) {
-		return 65 // Band 2: 60-69 points (using 65 as midpoint)
-	} else {
-		return 30 // Band 1: 0-59 points (using 30 as midpoint)
+	// For KRIs, use the same logic as KPIs
+	// Bands are expected to be ordered from highest score to lowest
+
+	// If no scoring bands are defined, return a default score
+	if len(kri.ScoringBands) == 0 {
+		return 50
 	}
+
+	// Check each scoring band
+	for _, band := range kri.ScoringBands {
+		// Check if the value falls within this band's range
+		inBand := true
+
+		// Check minimum bound if it exists
+		if band.Min != nil && value < *band.Min {
+			inBand = false
+		}
+
+		// Check maximum bound if it exists
+		if band.Max != nil && value > *band.Max {
+			inBand = false
+		}
+
+		// If the value is in this band, return the score
+		if inBand {
+			return band.Score
+		}
+	}
+
+	// If no band matches, return the lowest band's score or a default
+	if len(kri.ScoringBands) > 0 {
+		return kri.ScoringBands[len(kri.ScoringBands)-1].Score
+	}
+	return 0
 }
 
 // determineStatus determines the traffic light status based on the score

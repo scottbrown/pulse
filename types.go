@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+// FloatPtr creates a pointer to a float64 value
+// This is useful for creating min/max values for scoring bands
+func FloatPtr(v float64) *float64 {
+	return &v
+}
+
 // Category represents a security program category with KPIs and KRIs
 type Category struct {
 	ID          string `yaml:"id"`
@@ -13,24 +19,31 @@ type Category struct {
 	KRIs        []KRI  `yaml:"kris"`
 }
 
+// ScoringBand represents a single scoring band with min/max values and the resulting score
+type ScoringBand struct {
+	Min   *float64 `yaml:"min,omitempty"`
+	Max   *float64 `yaml:"max,omitempty"`
+	Score int      `yaml:"score"`
+}
+
 // KPI represents a Key Performance Indicator
 type KPI struct {
-	ID           string         `yaml:"id"`
-	Name         string         `yaml:"name"`
-	Description  string         `yaml:"description"`
-	Unit         string         `yaml:"unit"`
-	Target       float64        `yaml:"target"`
-	ScoringBands map[string]int `yaml:"scoring_bands"`
+	ID           string        `yaml:"id"`
+	Name         string        `yaml:"name"`
+	Description  string        `yaml:"description"`
+	Unit         string        `yaml:"unit"`
+	Target       float64       `yaml:"target"`
+	ScoringBands []ScoringBand `yaml:"scoring_bands"`
 }
 
 // KRI represents a Key Risk Indicator
 type KRI struct {
-	ID           string         `yaml:"id"`
-	Name         string         `yaml:"name"`
-	Description  string         `yaml:"description"`
-	Unit         string         `yaml:"unit"`
-	Threshold    float64        `yaml:"threshold"`
-	ScoringBands map[string]int `yaml:"scoring_bands"`
+	ID           string        `yaml:"id"`
+	Name         string        `yaml:"name"`
+	Description  string        `yaml:"description"`
+	Unit         string        `yaml:"unit"`
+	Threshold    float64       `yaml:"threshold"`
+	ScoringBands []ScoringBand `yaml:"scoring_bands"`
 }
 
 // MetricsConfig represents the structure of the metrics configuration file
@@ -51,14 +64,7 @@ type MetricsData struct {
 	Metrics []Metric `yaml:"metrics"`
 }
 
-// ScoringBands represents the scoring bands for the traffic light model
-type ScoringBands struct {
-	Band5 int `yaml:"band_5"` // 90-100 points
-	Band4 int `yaml:"band_4"` // 80-89 points
-	Band3 int `yaml:"band_3"` // 70-79 points
-	Band2 int `yaml:"band_2"` // 60-69 points
-	Band1 int `yaml:"band_1"` // 0-59 points
-}
+// Thresholds represents the traffic light thresholds
 
 // Thresholds represents the traffic light thresholds
 type Thresholds struct {
@@ -75,8 +81,7 @@ type CategoryThresholds map[string]Thresholds
 
 // Global represents global configuration settings
 type Global struct {
-	Thresholds   Thresholds   `yaml:"thresholds"`
-	ScoringBands ScoringBands `yaml:"scoring_bands"`
+	Thresholds Thresholds `yaml:"thresholds"`
 }
 
 // Weights represents the weights configuration

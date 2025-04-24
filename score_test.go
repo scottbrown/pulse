@@ -20,12 +20,12 @@ func TestScoreCalculator(t *testing.T) {
 						Description: "Test KPI description",
 						Unit:        "count",
 						Target:      10,
-						ScoringBands: map[string]int{
-							"band_5": 5,
-							"band_4": 10,
-							"band_3": 15,
-							"band_2": 20,
-							"band_1": 21,
+						ScoringBands: []ScoringBand{
+							{Max: FloatPtr(5), Score: 95},
+							{Min: FloatPtr(5), Max: FloatPtr(10), Score: 85},
+							{Min: FloatPtr(10), Max: FloatPtr(15), Score: 75},
+							{Min: FloatPtr(15), Max: FloatPtr(20), Score: 65},
+							{Min: FloatPtr(20), Score: 30},
 						},
 					},
 				},
@@ -36,12 +36,12 @@ func TestScoreCalculator(t *testing.T) {
 						Description: "Test KRI description",
 						Unit:        "count",
 						Threshold:   5,
-						ScoringBands: map[string]int{
-							"band_5": 0,
-							"band_4": 2,
-							"band_3": 5,
-							"band_2": 10,
-							"band_1": 11,
+						ScoringBands: []ScoringBand{
+							{Max: FloatPtr(0), Score: 95},
+							{Min: FloatPtr(0), Max: FloatPtr(2), Score: 85},
+							{Min: FloatPtr(2), Max: FloatPtr(5), Score: 75},
+							{Min: FloatPtr(5), Max: FloatPtr(10), Score: 65},
+							{Min: FloatPtr(10), Score: 30},
 						},
 					},
 				},
@@ -57,12 +57,12 @@ func TestScoreCalculator(t *testing.T) {
 						Description: "Test KPI 2 description",
 						Unit:        "percent",
 						Target:      95,
-						ScoringBands: map[string]int{
-							"band_5": 95,
-							"band_4": 90,
-							"band_3": 85,
-							"band_2": 80,
-							"band_1": 79,
+						ScoringBands: []ScoringBand{
+							{Min: FloatPtr(95), Score: 95},
+							{Min: FloatPtr(90), Max: FloatPtr(95), Score: 85},
+							{Min: FloatPtr(85), Max: FloatPtr(90), Score: 75},
+							{Min: FloatPtr(80), Max: FloatPtr(85), Score: 65},
+							{Max: FloatPtr(80), Score: 30},
 						},
 					},
 				},
@@ -76,13 +76,6 @@ func TestScoreCalculator(t *testing.T) {
 				Green:  80,
 				Yellow: 60,
 				Red:    0,
-			},
-			ScoringBands: ScoringBands{
-				Band5: 90,
-				Band4: 80,
-				Band3: 70,
-				Band2: 60,
-				Band1: 0,
 			},
 		},
 		Weights: Weights{
@@ -179,8 +172,8 @@ func TestScoreCalculator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to calculate category 2 score: %v", err)
 	}
-	if categoryScore2.Score != 95 {
-		t.Errorf("Expected category 2 score 95, got %d", categoryScore2.Score)
+	if categoryScore2.Score != 85 {
+		t.Errorf("Expected category 2 score 85, got %d", categoryScore2.Score)
 	}
 	if categoryScore2.Status != Green {
 		t.Errorf("Expected category 2 status Green, got %s", categoryScore2.Status)
@@ -219,9 +212,9 @@ func TestScoreCalculator(t *testing.T) {
 		t.Fatalf("Failed to calculate overall score with average scoring: %v", err)
 	}
 
-	// Expected overall score: (85 * 0.6) + (95 * 0.4) = 89
-	if avgOverallScore.Score != 89 {
-		t.Errorf("Expected average overall score 89, got %d", avgOverallScore.Score)
+	// Expected overall score: (85 * 0.6) + (85 * 0.4) = 85
+	if avgOverallScore.Score != 85 {
+		t.Errorf("Expected average overall score 85, got %d", avgOverallScore.Score)
 	}
 
 	// Test determineStatus
@@ -237,12 +230,12 @@ func TestScoreCalculator(t *testing.T) {
 
 	// Test calculateKPIScore
 	kpi := KPI{
-		ScoringBands: map[string]int{
-			"band_5": 5,
-			"band_4": 10,
-			"band_3": 15,
-			"band_2": 20,
-			"band_1": 21,
+		ScoringBands: []ScoringBand{
+			{Max: FloatPtr(5), Score: 95},
+			{Min: FloatPtr(5), Max: FloatPtr(10), Score: 85},
+			{Min: FloatPtr(10), Max: FloatPtr(15), Score: 75},
+			{Min: FloatPtr(15), Max: FloatPtr(20), Score: 65},
+			{Min: FloatPtr(20), Score: 30},
 		},
 	}
 	if calculateKPIScore(3, kpi) != 95 {
@@ -257,12 +250,12 @@ func TestScoreCalculator(t *testing.T) {
 
 	// Test calculateKRIScore
 	kri := KRI{
-		ScoringBands: map[string]int{
-			"band_5": 0,
-			"band_4": 2,
-			"band_3": 5,
-			"band_2": 10,
-			"band_1": 11,
+		ScoringBands: []ScoringBand{
+			{Max: FloatPtr(0), Score: 95},
+			{Min: FloatPtr(0), Max: FloatPtr(2), Score: 85},
+			{Min: FloatPtr(2), Max: FloatPtr(5), Score: 75},
+			{Min: FloatPtr(5), Max: FloatPtr(10), Score: 65},
+			{Min: FloatPtr(10), Score: 30},
 		},
 	}
 	if calculateKRIScore(0, kri) != 95 {
