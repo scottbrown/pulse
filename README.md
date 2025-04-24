@@ -240,4 +240,4 @@ When building a release, the version will be set to the git tag if the repositor
 
 ## License
 
-[Include your license information here]
+[MIT](LICENSE)
