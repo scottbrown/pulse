@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/scottbrown/pulse"
 	"github.com/spf13/cobra"
@@ -84,10 +85,37 @@ func main() {
 	// Add metrics subcommand
 	metricsCmd := &cobra.Command{
 		Use:   "metrics",
+		Short: "Manage metrics and metric files",
+		Long:  `Commands for managing metrics and metric files.`,
+	}
+
+	// Add list metrics subcommand
+	listMetricsCmd := &cobra.Command{
+		Use:   "list",
 		Short: "List all available metrics",
 		Long:  `List all available metrics with their current values.`,
 		Run:   runListMetricsCmd,
 	}
+
+	// Add list-files subcommand
+	listFilesCmd := &cobra.Command{
+		Use:   "list-files",
+		Short: "List all metric files",
+		Long:  `List all metric files in the metrics directory.`,
+		Run:   runListMetricFilesCmd,
+	}
+
+	// Add create-file subcommand
+	createFileCmd := &cobra.Command{
+		Use:   "create-file [name]",
+		Short: "Create a new metric file",
+		Long:  `Create a new empty metric file with the given name.`,
+		Args:  cobra.ExactArgs(1),
+		Run:   runCreateMetricFileCmd,
+	}
+
+	// Add subcommands to metrics command
+	metricsCmd.AddCommand(listMetricsCmd, listFilesCmd, createFileCmd)
 
 	// Add categories subcommand
 	categoriesCmd := &cobra.Command{
@@ -107,7 +135,7 @@ func main() {
 	}
 
 	// Add subcommands to list command
-	listCmd.AddCommand(metricsCmd, categoriesCmd)
+	listCmd.AddCommand(categoriesCmd)
 
 	// Add version command
 	versionCmd := &cobra.Command{
@@ -120,7 +148,7 @@ func main() {
 	}
 
 	// Add commands to root command
-	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, initCmd, versionCmd)
+	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, metricsCmd, initCmd, versionCmd)
 
 	// Execute the root command
 	if err := rootCmd.Execute(); err != nil {
@@ -242,6 +270,63 @@ func runUpdateCmd(cmd *cobra.Command, args []string) {
 	}
 
 	fmt.Printf("Metric %s updated to %s\n", metricRef, metricVal)
+}
+
+func runListMetricFilesCmd(cmd *cobra.Command, args []string) {
+	// Get metrics directory
+	metricsDir := filepath.Join(dataDir, "metrics")
+
+	// Check if metrics directory exists
+	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
+		fmt.Println("Metrics directory does not exist.")
+		return
+	}
+
+	// Read all files in the metrics directory
+	files, err := os.ReadDir(metricsDir)
+	if err != nil {
+		fmt.Printf("Error reading metrics directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(files) == 0 {
+		fmt.Println("No metric files found.")
+		return
+	}
+
+	fmt.Println("Available metric files:")
+	fmt.Println("----------------------")
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		if strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") {
+			fmt.Println(file.Name())
+		}
+	}
+
+	// Check for legacy file
+	legacyPath := filepath.Join(dataDir, "metrics.yaml")
+	if _, err := os.Stat(legacyPath); err == nil {
+		fmt.Println("metrics.yaml (legacy format)")
+	}
+}
+
+func runCreateMetricFileCmd(cmd *cobra.Command, args []string) {
+	// Initialize the config loader
+	configLoader := pulse.NewConfigLoader(configDir, dataDir)
+
+	// Create the metric file
+	fileName := args[0]
+	err := configLoader.CreateMetricFile(fileName)
+	if err != nil {
+		fmt.Printf("Error creating metric file: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Metric file '%s' created successfully.\n", fileName)
 }
 
 func runListMetricsCmd(cmd *cobra.Command, args []string) {

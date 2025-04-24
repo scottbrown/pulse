@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,8 +55,77 @@ func (c *ConfigLoader) LoadLeversConfig() (*LeversConfig, error) {
 	return &config, nil
 }
 
-// LoadMetricsData loads the metrics data from the YAML file
+// LoadMetricsData loads the metrics data from YAML files in the metrics directory
 func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
+	metricsDir := filepath.Join(c.DataDir, "metrics")
+
+	// Check if metrics directory exists
+	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
+		// If not, try the legacy single file approach
+		return c.loadLegacyMetricsData()
+	}
+
+	// Read all files in the metrics directory
+	files, err := os.ReadDir(metricsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read metrics directory: %w", err)
+	}
+
+	allMetrics := &MetricsData{
+		Metrics: []Metric{},
+	}
+
+	// If no files found, try legacy approach
+	if len(files) == 0 {
+		legacyData, err := c.loadLegacyMetricsData()
+		if err == nil {
+			return legacyData, nil
+		}
+		// If legacy approach fails, return empty metrics
+		return allMetrics, nil
+	}
+
+	// Process each YAML file in the directory
+	var parseErrors []string
+
+	for _, file := range files {
+		if file.IsDir() || (!strings.HasSuffix(file.Name(), ".yaml") &&
+			!strings.HasSuffix(file.Name(), ".yml")) {
+			continue
+		}
+
+		path := filepath.Join(metricsDir, file.Name())
+		data, err := os.ReadFile(path)
+		if err != nil {
+			parseErrors = append(parseErrors, fmt.Sprintf("failed to read metrics file %s: %v", file.Name(), err))
+			continue
+		}
+
+		var fileMetrics MetricsData
+		if err := yaml.Unmarshal(data, &fileMetrics); err != nil {
+			parseErrors = append(parseErrors, fmt.Sprintf("failed to parse metrics file %s: %v", file.Name(), err))
+			continue
+		}
+
+		// Add source file information to each metric for saving later
+		for i := range fileMetrics.Metrics {
+			fileMetrics.Metrics[i].SourceFile = file.Name()
+		}
+
+		allMetrics.Metrics = append(allMetrics.Metrics, fileMetrics.Metrics...)
+	}
+
+	// If we couldn't parse any files and have errors, return the first error
+	if len(allMetrics.Metrics) == 0 && len(parseErrors) > 0 {
+		return nil, fmt.Errorf("failed to load any metrics: %s", parseErrors[0])
+	}
+
+	// If we have some metrics, return them even if there were some errors
+	return allMetrics, nil
+}
+
+// loadLegacyMetricsData loads metrics from the legacy single file format
+func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
 	path := filepath.Join(c.DataDir, "metrics.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -67,20 +137,93 @@ func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
 		return nil, fmt.Errorf("failed to parse metrics data file: %w", err)
 	}
 
+	// Mark all metrics as coming from the legacy file
+	for i := range metricsData.Metrics {
+		metricsData.Metrics[i].SourceFile = "metrics.yaml"
+	}
+
 	return &metricsData, nil
 }
 
-// SaveMetricsData saves the metrics data to the YAML file
+// SaveMetricsData saves the metrics data to YAML files in the metrics directory
 func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
-	path := filepath.Join(c.DataDir, "metrics.yaml")
+	metricsDir := filepath.Join(c.DataDir, "metrics")
 
-	data, err := yaml.Marshal(metricsData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal metrics data: %w", err)
+	// Ensure metrics directory exists
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write metrics data file: %w", err)
+	// Group metrics by source file
+	metricsByFile := make(map[string][]Metric)
+
+	for _, metric := range metricsData.Metrics {
+		sourceFile := metric.SourceFile
+		if sourceFile == "" {
+			// If no source file specified, use default
+			sourceFile = "default.yaml"
+		}
+		metricsByFile[sourceFile] = append(metricsByFile[sourceFile], metric)
+	}
+
+	// Save each group to its respective file
+	for fileName, metrics := range metricsByFile {
+		filePath := filepath.Join(metricsDir, fileName)
+
+		// For legacy file, use the original path
+		if fileName == "metrics.yaml" {
+			filePath = filepath.Join(c.DataDir, fileName)
+		}
+
+		fileData := MetricsData{
+			Metrics: metrics,
+		}
+
+		data, err := yaml.Marshal(fileData)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metrics data for %s: %w", fileName, err)
+		}
+
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write metrics data file %s: %w", fileName, err)
+		}
+	}
+
+	return nil
+}
+
+// CreateMetricFile creates a new metric file with the given name
+func (c *ConfigLoader) CreateMetricFile(fileName string) error {
+	if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
+		fileName += ".yaml"
+	}
+
+	metricsDir := filepath.Join(c.DataDir, "metrics")
+
+	// Ensure metrics directory exists
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create metrics directory: %w", err)
+	}
+
+	filePath := filepath.Join(metricsDir, fileName)
+
+	// Check if file already exists
+	if _, err := os.Stat(filePath); err == nil {
+		return fmt.Errorf("metric file %s already exists", fileName)
+	}
+
+	// Create empty metrics file
+	emptyMetrics := MetricsData{
+		Metrics: []Metric{},
+	}
+
+	data, err := yaml.Marshal(emptyMetrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal empty metrics data: %w", err)
+	}
+
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to create metric file %s: %w", fileName, err)
 	}
 
 	return nil
@@ -167,19 +310,57 @@ weights:
 		}
 	}
 
-	// Create default metrics data if it doesn't exist
-	metricsDataPath := filepath.Join(c.DataDir, "metrics.yaml")
-	if _, err := os.Stat(metricsDataPath); os.IsNotExist(err) {
-		defaultMetricsData := `metrics:
-  - reference: "app_sec.KPI.vuln_remediation_time"
-    value: 45
-    timestamp: "2025-04-01T00:00:00Z"
-  - reference: "app_sec.KRI.critical_vulns"
-    value: 3
-    timestamp: "2025-04-01T00:00:00Z"`
+	// Create metrics directory and default metrics files
+	metricsDir := filepath.Join(c.DataDir, "metrics")
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create metrics directory: %w", err)
+	}
 
-		if err := os.WriteFile(metricsDataPath, []byte(defaultMetricsData), 0644); err != nil {
-			return fmt.Errorf("failed to create default metrics data: %w", err)
+	// Create app_sec metrics file
+	appSecPath := filepath.Join(metricsDir, "app_sec.yaml")
+	if _, err := os.Stat(appSecPath); os.IsNotExist(err) {
+		appSecData := `metrics:
+		- reference: "app_sec.KPI.vuln_remediation_time"
+		  value: 45
+		  timestamp: "2025-04-01T00:00:00Z"
+		- reference: "app_sec.KRI.critical_vulns"
+		  value: 3
+		  timestamp: "2025-04-01T00:00:00Z"`
+
+		if err := os.WriteFile(appSecPath, []byte(appSecData), 0644); err != nil {
+			return fmt.Errorf("failed to create app_sec metrics file: %w", err)
+		}
+	}
+
+	// Create infra_sec metrics file
+	infraSecPath := filepath.Join(metricsDir, "infra_sec.yaml")
+	if _, err := os.Stat(infraSecPath); os.IsNotExist(err) {
+		infraSecData := `metrics:
+		- reference: "infra_sec.KPI.patch_coverage"
+		  value: 94
+		  timestamp: "2025-04-01T00:00:00Z"
+		- reference: "infra_sec.KRI.exposed_services"
+		  value: 4
+		  timestamp: "2025-04-01T00:00:00Z"`
+
+		if err := os.WriteFile(infraSecPath, []byte(infraSecData), 0644); err != nil {
+			return fmt.Errorf("failed to create infra_sec metrics file: %w", err)
+		}
+	}
+
+	// Create compliance metrics file
+	compliancePath := filepath.Join(metricsDir, "compliance.yaml")
+	if _, err := os.Stat(compliancePath); os.IsNotExist(err) {
+		complianceData := `metrics:
+		- reference: "compliance.KPI.policy_compliance"
+		  value: 92
+		  timestamp: "2025-04-01T00:00:00Z"
+		- reference: "compliance.KRI.open_audit_findings"
+		  value: 7
+		  timestamp: "2025-04-01T00:00:00Z"`
+
+		if err := os.WriteFile(compliancePath, []byte(complianceData), 0644); err != nil {
+			return fmt.Errorf("failed to create compliance metrics file: %w", err)
 		}
 	}
 

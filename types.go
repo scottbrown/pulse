@@ -40,9 +40,10 @@ type MetricsConfig struct {
 
 // Metric represents a single metric measurement
 type Metric struct {
-	Reference string    `yaml:"reference"`
-	Value     float64   `yaml:"value"`
-	Timestamp time.Time `yaml:"timestamp"`
+	Reference  string    `yaml:"reference"`
+	Value      float64   `yaml:"value"`
+	Timestamp  time.Time `yaml:"timestamp"`
+	SourceFile string    `yaml:"-"` // Source file for the metric (not stored in YAML)
 }
 
 // MetricsData represents the structure of the metrics data file

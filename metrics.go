@@ -39,12 +39,23 @@ func (m *MetricsProcessor) UpdateMetric(reference string, value float64) error {
 		return fmt.Errorf("invalid metric reference format: %s", reference)
 	}
 
+	// Extract category ID from reference for file organization
+	parts := strings.Split(reference, ".")
+	categoryID := parts[0]
+	sourceFile := categoryID + ".yaml"
+
 	// Check if the metric exists
 	var found bool
 	for i, metric := range m.metricsData.Metrics {
 		if metric.Reference == reference {
 			m.metricsData.Metrics[i].Value = value
 			m.metricsData.Metrics[i].Timestamp = time.Now()
+
+			// Update source file if not already set
+			if m.metricsData.Metrics[i].SourceFile == "" {
+				m.metricsData.Metrics[i].SourceFile = sourceFile
+			}
+
 			found = true
 			break
 		}
@@ -53,9 +64,10 @@ func (m *MetricsProcessor) UpdateMetric(reference string, value float64) error {
 	// If not found, add a new metric
 	if !found {
 		m.metricsData.Metrics = append(m.metricsData.Metrics, Metric{
-			Reference: reference,
-			Value:     value,
-			Timestamp: time.Now(),
+			Reference:  reference,
+			Value:      value,
+			Timestamp:  time.Now(),
+			SourceFile: sourceFile,
 		})
 	}
 

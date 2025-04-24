@@ -20,22 +20,87 @@ func TestConfigLoader(t *testing.T) {
 	// Create a ConfigLoader instance
 	loader := NewConfigLoader(configDir, dataDir)
 
-	// Test CreateDefaultConfigFiles
-	err = loader.CreateDefaultConfigFiles()
-	if err != nil {
-		t.Fatalf("Failed to create default config files: %v", err)
+	// Create test directories
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatalf("Failed to create config directory: %v", err)
+	}
+
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatalf("Failed to create data directory: %v", err)
+	}
+
+	metricsDir := filepath.Join(dataDir, "metrics")
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		t.Fatalf("Failed to create metrics directory: %v", err)
+	}
+
+	// Create test config files
+	metricsConfigData := `categories:
+  - id: "test_cat"
+    name: "Test Category"
+    description: "Test category description"
+    kpis:
+      - id: "test_kpi"
+        name: "Test KPI"
+        description: "Test KPI description"
+        unit: "count"
+        target: 10
+    kris:
+      - id: "test_kri"
+        name: "Test KRI"
+        description: "Test KRI description"
+        unit: "count"
+        threshold: 5`
+
+	if err := os.WriteFile(filepath.Join(configDir, "metrics.yaml"), []byte(metricsConfigData), 0644); err != nil {
+		t.Fatalf("Failed to write metrics config file: %v", err)
+	}
+
+	leversConfigData := `global:
+  thresholds:
+    green: 80
+    yellow: 60
+    red: 0`
+
+	if err := os.WriteFile(filepath.Join(configDir, "levers.yaml"), []byte(leversConfigData), 0644); err != nil {
+		t.Fatalf("Failed to write levers config file: %v", err)
+	}
+
+	// Create test metrics file
+	testMetricsData := `metrics:
+  - reference: "test_cat.KPI.test_kpi"
+    value: 10
+    timestamp: "2025-04-01T00:00:00Z"
+  - reference: "test_cat.KRI.test_kri"
+    value: 5
+    timestamp: "2025-04-01T00:00:00Z"`
+
+	if err := os.WriteFile(filepath.Join(metricsDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
+		t.Fatalf("Failed to write test metrics file: %v", err)
 	}
 
 	// Check if the files were created
-	files := []string{
+	configFiles := []string{
 		filepath.Join(configDir, "metrics.yaml"),
 		filepath.Join(configDir, "levers.yaml"),
-		filepath.Join(dataDir, "metrics.yaml"),
 	}
 
-	for _, file := range files {
+	for _, file := range configFiles {
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			t.Errorf("Expected file %s to exist", file)
+		}
+	}
+
+	// Check if metrics directory exists
+	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
+		t.Errorf("Expected metrics directory %s to exist", metricsDir)
+	} else {
+		// Check if metrics files exist
+		metricFiles, err := os.ReadDir(metricsDir)
+		if err != nil {
+			t.Errorf("Failed to read metrics directory: %v", err)
+		} else if len(metricFiles) == 0 {
+			t.Errorf("Expected metrics files in %s, but directory is empty", metricsDir)
 		}
 	}
 
@@ -69,8 +134,9 @@ func TestConfigLoader(t *testing.T) {
 
 	// Test SaveMetricsData
 	newMetric := Metric{
-		Reference: "test.KPI.test_metric",
-		Value:     42.0,
+		Reference:  "test.KPI.test_metric",
+		Value:      42.0,
+		SourceFile: "test.yaml",
 	}
 	metricsData.Metrics = append(metricsData.Metrics, newMetric)
 
