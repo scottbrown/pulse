@@ -36,7 +36,18 @@ func validateYAML(data []byte) error {
 	}
 
 	// Check for YAML anchors and aliases that could be used for exploits
-	if bytes.Contains(data, []byte("&")) || bytes.Contains(data, []byte("*")) {
+	// Only detect actual YAML anchors/aliases, not & or * in text
+	// YAML anchors look like "&anchor_name" at the start of a line or after a colon
+	// YAML aliases look like "*alias_name" at the start of a line or after a colon
+	anchorPattern := []byte("\n&")
+	aliasPattern := []byte("\n*")
+	colonAnchorPattern := []byte(": &")
+	colonAliasPattern := []byte(": *")
+
+	if bytes.Contains(data, anchorPattern) ||
+		bytes.Contains(data, aliasPattern) ||
+		bytes.Contains(data, colonAnchorPattern) ||
+		bytes.Contains(data, colonAliasPattern) {
 		return fmt.Errorf("potentially unsafe YAML: anchors or aliases detected")
 	}
 
