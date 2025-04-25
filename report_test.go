@@ -67,6 +67,34 @@ func TestReportGenerator(t *testing.T) {
 					Max: 59,
 				},
 			},
+			KPIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 85,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 65,
+					Max: 84,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 64,
+				},
+			},
+			KRIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 75,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 55,
+					Max: 74,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 54,
+				},
+			},
 		},
 		Weights: Weights{
 			Categories: CategoryWeights{
@@ -108,8 +136,11 @@ func TestReportGenerator(t *testing.T) {
 	// Check if the text report contains expected content
 	expectedTextContent := []string{
 		"SECURITY POSTURE REPORT",
-		"Overall Score:",
+		"KPI Score:",
+		"KRI Score:",
 		"Test Category:",
+		"KPI: ",
+		"KRI: ",
 		"KPI test_kpi:",
 		"KRI test_kri:",
 	}
@@ -136,11 +167,17 @@ func TestReportGenerator(t *testing.T) {
 	if _, ok := jsonData["report_date"]; !ok {
 		t.Error("Expected JSON report to contain 'report_date' field")
 	}
-	if _, ok := jsonData["overall_score"]; !ok {
-		t.Error("Expected JSON report to contain 'overall_score' field")
+	if _, ok := jsonData["kpi_score"]; !ok {
+		t.Error("Expected JSON report to contain 'kpi_score' field")
 	}
-	if _, ok := jsonData["status"]; !ok {
-		t.Error("Expected JSON report to contain 'status' field")
+	if _, ok := jsonData["kri_score"]; !ok {
+		t.Error("Expected JSON report to contain 'kri_score' field")
+	}
+	if _, ok := jsonData["kpi_status"]; !ok {
+		t.Error("Expected JSON report to contain 'kpi_status' field")
+	}
+	if _, ok := jsonData["kri_status"]; !ok {
+		t.Error("Expected JSON report to contain 'kri_status' field")
 	}
 	if _, ok := jsonData["categories"]; !ok {
 		t.Error("Expected JSON report to contain 'categories' field")
@@ -155,7 +192,8 @@ func TestReportGenerator(t *testing.T) {
 	// Check if the category text report contains expected content
 	expectedCategoryTextContent := []string{
 		"TEST CATEGORY REPORT",
-		"Category Score:",
+		"KPI Score:",
+		"KRI Score:",
 		"KPI test_kpi:",
 		"KRI test_kri:",
 	}
@@ -188,11 +226,17 @@ func TestReportGenerator(t *testing.T) {
 	if _, ok := categoryJsonData["category_name"]; !ok {
 		t.Error("Expected category JSON report to contain 'category_name' field")
 	}
-	if _, ok := categoryJsonData["category_score"]; !ok {
-		t.Error("Expected category JSON report to contain 'category_score' field")
+	if _, ok := categoryJsonData["kpi_score"]; !ok {
+		t.Error("Expected category JSON report to contain 'kpi_score' field")
 	}
-	if _, ok := categoryJsonData["status"]; !ok {
-		t.Error("Expected category JSON report to contain 'status' field")
+	if _, ok := categoryJsonData["kri_score"]; !ok {
+		t.Error("Expected category JSON report to contain 'kri_score' field")
+	}
+	if _, ok := categoryJsonData["kpi_status"]; !ok {
+		t.Error("Expected category JSON report to contain 'kpi_status' field")
+	}
+	if _, ok := categoryJsonData["kri_status"]; !ok {
+		t.Error("Expected category JSON report to contain 'kri_status' field")
 	}
 	if _, ok := categoryJsonData["metrics"]; !ok {
 		t.Error("Expected category JSON report to contain 'metrics' field")

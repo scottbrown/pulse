@@ -85,13 +85,17 @@ type CategoryThresholds map[string]Thresholds
 
 // Global represents global configuration settings
 type Global struct {
-	Thresholds Thresholds `yaml:"thresholds"`
+	Thresholds    Thresholds `yaml:"thresholds"`
+	KPIThresholds Thresholds `yaml:"kpi_thresholds"`
+	KRIThresholds Thresholds `yaml:"kri_thresholds"`
 }
 
 // Weights represents the weights configuration
 type Weights struct {
-	Categories         CategoryWeights    `yaml:"categories"`
-	CategoryThresholds CategoryThresholds `yaml:"category_thresholds"`
+	Categories            CategoryWeights    `yaml:"categories"`
+	CategoryThresholds    CategoryThresholds `yaml:"category_thresholds"`
+	CategoryKPIThresholds CategoryThresholds `yaml:"category_kpi_thresholds"`
+	CategoryKRIThresholds CategoryThresholds `yaml:"category_kri_thresholds"`
 }
 
 // LeversConfig represents the structure of the executive levers configuration file
@@ -118,16 +122,24 @@ type MetricScore struct {
 
 // CategoryScore represents a calculated score for a category
 type CategoryScore struct {
-	ID      string
-	Name    string
-	Score   int
-	Status  TrafficLightStatus
-	Metrics []MetricScore
+	ID        string
+	Name      string
+	Score     int
+	KPIScore  int
+	KRIScore  int
+	Status    TrafficLightStatus
+	KPIStatus TrafficLightStatus
+	KRIStatus TrafficLightStatus
+	Metrics   []MetricScore
 }
 
 // OverallScore represents the overall security posture score
 type OverallScore struct {
 	Score      int
+	KPIScore   int
+	KRIScore   int
 	Status     TrafficLightStatus
+	KPIStatus  TrafficLightStatus
+	KRIStatus  TrafficLightStatus
 	Categories []CategoryScore
 }

@@ -86,6 +86,34 @@ func TestScoreCalculator(t *testing.T) {
 					Max: 59,
 				},
 			},
+			KPIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 85,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 65,
+					Max: 84,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 64,
+				},
+			},
+			KRIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 75,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 55,
+					Max: 74,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 54,
+				},
+			},
 		},
 		Weights: Weights{
 			Categories: CategoryWeights{
@@ -105,6 +133,38 @@ func TestScoreCalculator(t *testing.T) {
 					Red: ThresholdRange{
 						Min: 0,
 						Max: 69,
+					},
+				},
+			},
+			CategoryKPIThresholds: CategoryThresholds{
+				"test_cat2": Thresholds{
+					Green: ThresholdRange{
+						Min: 90,
+						Max: 100,
+					},
+					Yellow: ThresholdRange{
+						Min: 75,
+						Max: 89,
+					},
+					Red: ThresholdRange{
+						Min: 0,
+						Max: 74,
+					},
+				},
+			},
+			CategoryKRIThresholds: CategoryThresholds{
+				"test_cat2": Thresholds{
+					Green: ThresholdRange{
+						Min: 80,
+						Max: 100,
+					},
+					Yellow: ThresholdRange{
+						Min: 65,
+						Max: 79,
+					},
+					Red: ThresholdRange{
+						Min: 0,
+						Max: 64,
 					},
 				},
 			},
@@ -166,8 +226,8 @@ func TestScoreCalculator(t *testing.T) {
 	if kriScore.Score != 75 {
 		t.Errorf("Expected KRI score 75, got %d", kriScore.Score)
 	}
-	if kriScore.Status != Yellow {
-		t.Errorf("Expected KRI status Yellow, got %s", kriScore.Status)
+	if kriScore.Status != Green {
+		t.Errorf("Expected KRI status Green, got %s", kriScore.Status)
 	}
 
 	// Test CalculateCategoryScore with median scoring
@@ -178,8 +238,20 @@ func TestScoreCalculator(t *testing.T) {
 	if categoryScore.Score != 85 { // Median of 95 and 75
 		t.Errorf("Expected category score 85, got %d", categoryScore.Score)
 	}
+	if categoryScore.KPIScore != 95 {
+		t.Errorf("Expected category KPI score 95, got %d", categoryScore.KPIScore)
+	}
+	if categoryScore.KRIScore != 75 {
+		t.Errorf("Expected category KRI score 75, got %d", categoryScore.KRIScore)
+	}
 	if categoryScore.Status != Green {
 		t.Errorf("Expected category status Green, got %s", categoryScore.Status)
+	}
+	if categoryScore.KPIStatus != Green {
+		t.Errorf("Expected category KPI status Green, got %s", categoryScore.KPIStatus)
+	}
+	if categoryScore.KRIStatus != Green {
+		t.Errorf("Expected category KRI status Green, got %s", categoryScore.KRIStatus)
 	}
 	if len(categoryScore.Metrics) != 2 {
 		t.Errorf("Expected 2 metrics in category score, got %d", len(categoryScore.Metrics))
@@ -208,8 +280,20 @@ func TestScoreCalculator(t *testing.T) {
 	if overallScore.Score != 85 {
 		t.Errorf("Expected overall score 85, got %d", overallScore.Score)
 	}
+	if overallScore.KPIScore != 95 {
+		t.Errorf("Expected overall KPI score 95, got %d", overallScore.KPIScore)
+	}
+	if overallScore.KRIScore != 75 {
+		t.Errorf("Expected overall KRI score 75, got %d", overallScore.KRIScore)
+	}
 	if overallScore.Status != Green {
 		t.Errorf("Expected overall status Green, got %s", overallScore.Status)
+	}
+	if overallScore.KPIStatus != Green {
+		t.Errorf("Expected overall KPI status Green, got %s", overallScore.KPIStatus)
+	}
+	if overallScore.KRIStatus != Green {
+		t.Errorf("Expected overall KRI status Green, got %s", overallScore.KRIStatus)
 	}
 	if len(overallScore.Categories) != 2 {
 		t.Errorf("Expected 2 categories in overall score, got %d", len(overallScore.Categories))

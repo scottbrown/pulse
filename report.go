@@ -11,18 +11,22 @@ import (
 
 // JSON report types
 type jsonReport struct {
-	ReportDate   string         `json:"report_date"`
-	OverallScore int            `json:"overall_score"`
-	Status       string         `json:"status"`
-	Categories   []jsonCategory `json:"categories"`
+	ReportDate string         `json:"report_date"`
+	KPIScore   int            `json:"kpi_score"`
+	KRIScore   int            `json:"kri_score"`
+	KPIStatus  string         `json:"kpi_status"`
+	KRIStatus  string         `json:"kri_status"`
+	Categories []jsonCategory `json:"categories"`
 }
 
 type jsonCategory struct {
-	ID      string       `json:"id"`
-	Name    string       `json:"name"`
-	Score   int          `json:"score"`
-	Status  string       `json:"status"`
-	Metrics []jsonMetric `json:"metrics"`
+	ID        string       `json:"id"`
+	Name      string       `json:"name"`
+	KPIScore  int          `json:"kpi_score"`
+	KRIScore  int          `json:"kri_score"`
+	KPIStatus string       `json:"kpi_status"`
+	KRIStatus string       `json:"kri_status"`
+	Metrics   []jsonMetric `json:"metrics"`
 }
 
 type jsonMetric struct {
@@ -32,12 +36,14 @@ type jsonMetric struct {
 }
 
 type jsonCategoryReport struct {
-	ReportDate    string       `json:"report_date"`
-	CategoryID    string       `json:"category_id"`
-	CategoryName  string       `json:"category_name"`
-	CategoryScore int          `json:"category_score"`
-	Status        string       `json:"status"`
-	Metrics       []jsonMetric `json:"metrics"`
+	ReportDate   string       `json:"report_date"`
+	CategoryID   string       `json:"category_id"`
+	CategoryName string       `json:"category_name"`
+	KPIScore     int          `json:"kpi_score"`
+	KRIScore     int          `json:"kri_score"`
+	KPIStatus    string       `json:"kpi_status"`
+	KRIStatus    string       `json:"kri_status"`
+	Metrics      []jsonMetric `json:"metrics"`
 }
 
 // ReportGenerator handles generation of reports
@@ -116,13 +122,17 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 	var sb strings.Builder
 
 	sb.WriteString("===== SECURITY POSTURE REPORT =====\n\n")
-	sb.WriteString(fmt.Sprintf("Overall Score: %d (%s)\n", score.Score, formatStatus(score.Status)))
+	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, formatStatus(score.KPIStatus)))
+	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, formatStatus(score.KRIStatus)))
 	sb.WriteString(fmt.Sprintf("Report Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 
 	sb.WriteString("Category Scores:\n")
 	sb.WriteString("----------------\n")
 	for _, category := range score.Categories {
-		sb.WriteString(fmt.Sprintf("- %s: %d (%s)\n", sanitizeString(category.Name), category.Score, formatStatus(category.Status)))
+		sb.WriteString(fmt.Sprintf("- %s:\n", sanitizeString(category.Name)))
+		sb.WriteString(fmt.Sprintf("  KPI: %d (%s), KRI: %d (%s)\n",
+			category.KPIScore, formatStatus(category.KPIStatus),
+			category.KRIScore, formatStatus(category.KRIStatus)))
 	}
 
 	sb.WriteString("\nDetailed Metrics:\n")
@@ -147,17 +157,50 @@ func (r *ReportGenerator) formatCategoryReportAsText(score *CategoryScore) strin
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("===== %s REPORT =====\n\n", strings.ToUpper(sanitizeString(score.Name))))
-	sb.WriteString(fmt.Sprintf("Category Score: %d (%s)\n", score.Score, formatStatus(score.Status)))
+	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, formatStatus(score.KPIStatus)))
+	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, formatStatus(score.KRIStatus)))
 	sb.WriteString(fmt.Sprintf("Report Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 
 	sb.WriteString("Metrics:\n")
 	sb.WriteString("--------\n")
+
+	// Group metrics by type
+	var kpiMetrics []MetricScore
+	var kriMetrics []MetricScore
+
 	for _, metric := range score.Metrics {
 		parts := strings.Split(metric.Reference, ".")
 		if len(parts) == 3 {
 			metricType := parts[1]
-			metricID := parts[2]
-			sb.WriteString(fmt.Sprintf("- %s %s: %d (%s)\n", sanitizeString(metricType), sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+			if metricType == "KPI" {
+				kpiMetrics = append(kpiMetrics, metric)
+			} else if metricType == "KRI" {
+				kriMetrics = append(kriMetrics, metric)
+			}
+		}
+	}
+
+	// Display KPIs
+	if len(kpiMetrics) > 0 {
+		sb.WriteString("\nKPIs:\n")
+		for _, metric := range kpiMetrics {
+			parts := strings.Split(metric.Reference, ".")
+			if len(parts) == 3 {
+				metricID := parts[2]
+				sb.WriteString(fmt.Sprintf("- KPI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+			}
+		}
+	}
+
+	// Display KRIs
+	if len(kriMetrics) > 0 {
+		sb.WriteString("\nKRIs:\n")
+		for _, metric := range kriMetrics {
+			parts := strings.Split(metric.Reference, ".")
+			if len(parts) == 3 {
+				metricID := parts[2]
+				sb.WriteString(fmt.Sprintf("- KRI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+			}
 		}
 	}
 
@@ -179,19 +222,23 @@ func (r *ReportGenerator) formatOverallReportAsJSON(score *OverallScore) (string
 		}
 
 		categories = append(categories, jsonCategory{
-			ID:      sanitizeString(category.ID),
-			Name:    sanitizeString(category.Name),
-			Score:   category.Score,
-			Status:  string(category.Status),
-			Metrics: metrics,
+			ID:        sanitizeString(category.ID),
+			Name:      sanitizeString(category.Name),
+			KPIScore:  category.KPIScore,
+			KRIScore:  category.KRIScore,
+			KPIStatus: string(category.KPIStatus),
+			KRIStatus: string(category.KRIStatus),
+			Metrics:   metrics,
 		})
 	}
 
 	report := jsonReport{
-		ReportDate:   time.Now().Format(time.RFC3339),
-		OverallScore: score.Score,
-		Status:       string(score.Status),
-		Categories:   categories,
+		ReportDate: time.Now().Format(time.RFC3339),
+		KPIScore:   score.KPIScore,
+		KRIScore:   score.KRIScore,
+		KPIStatus:  string(score.KPIStatus),
+		KRIStatus:  string(score.KRIStatus),
+		Categories: categories,
 	}
 
 	jsonData, err := json.MarshalIndent(report, "", "  ")
@@ -215,12 +262,14 @@ func (r *ReportGenerator) formatCategoryReportAsJSON(score *CategoryScore) (stri
 	}
 
 	report := jsonCategoryReport{
-		ReportDate:    time.Now().Format(time.RFC3339),
-		CategoryID:    sanitizeString(score.ID),
-		CategoryName:  sanitizeString(score.Name),
-		CategoryScore: score.Score,
-		Status:        string(score.Status),
-		Metrics:       metrics,
+		ReportDate:   time.Now().Format(time.RFC3339),
+		CategoryID:   sanitizeString(score.ID),
+		CategoryName: sanitizeString(score.Name),
+		KPIScore:     score.KPIScore,
+		KRIScore:     score.KRIScore,
+		KPIStatus:    string(score.KPIStatus),
+		KRIStatus:    string(score.KRIStatus),
+		Metrics:      metrics,
 	}
 
 	jsonData, err := json.MarshalIndent(report, "", "  ")

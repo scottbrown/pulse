@@ -58,14 +58,14 @@ func (s *ScoreCalculator) CalculateMetricScore(metric Metric) (*MetricScore, err
 			return nil, fmt.Errorf("failed to cast metric definition to KPI")
 		}
 		score = calculateKPIScore(metric.Value, kpi)
-		status = determineStatus(score, s.metricsProcessor.leversConfig.Global.Thresholds)
+		status = determineStatus(score, s.metricsProcessor.leversConfig.Global.KPIThresholds)
 	} else if metricType == "KRI" {
 		kri, ok := metricDef.(KRI)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast metric definition to KRI")
 		}
 		score = calculateKRIScore(metric.Value, kri)
-		status = determineStatus(score, s.metricsProcessor.leversConfig.Global.Thresholds)
+		status = determineStatus(score, s.metricsProcessor.leversConfig.Global.KRIThresholds)
 	} else {
 		return nil, fmt.Errorf("unknown metric type: %s", metricType)
 	}
@@ -223,7 +223,9 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 	// Calculate scores for each metric
 	var metricScores []MetricScore
 	var scores []int
-	var totalScore int
+	var kpiScores []int
+	var kriScores []int
+
 	for _, metric := range categoryMetrics {
 		metricScore, err := s.CalculateMetricScore(metric)
 		if err != nil {
@@ -231,10 +233,21 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 		}
 		metricScores = append(metricScores, *metricScore)
 		scores = append(scores, metricScore.Score)
-		totalScore += metricScore.Score
+
+		// Separate KPI and KRI scores
+		metricType, err := GetMetricType(metric.Reference)
+		if err != nil {
+			return nil, err
+		}
+
+		if metricType == "KPI" {
+			kpiScores = append(kpiScores, metricScore.Score)
+		} else if metricType == "KRI" {
+			kriScores = append(kriScores, metricScore.Score)
+		}
 	}
 
-	// Calculate score based on scoring method
+	// Calculate overall category score based on scoring method
 	var categoryScore int
 	if s.scoringMethod == MedianScoring {
 		categoryScore = calculateMedian(scores)
@@ -242,7 +255,25 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 		categoryScore = calculateAverage(scores)
 	}
 
-	// Determine status
+	// Calculate separate KPI and KRI scores
+	var kpiScore, kriScore int
+	if len(kpiScores) > 0 {
+		if s.scoringMethod == MedianScoring {
+			kpiScore = calculateMedian(kpiScores)
+		} else {
+			kpiScore = calculateAverage(kpiScores)
+		}
+	}
+
+	if len(kriScores) > 0 {
+		if s.scoringMethod == MedianScoring {
+			kriScore = calculateMedian(kriScores)
+		} else {
+			kriScore = calculateAverage(kriScores)
+		}
+	}
+
+	// Determine overall status
 	var status TrafficLightStatus
 
 	// Check if there are category-specific thresholds
@@ -252,12 +283,40 @@ func (s *ScoreCalculator) CalculateCategoryScore(categoryID string) (*CategorySc
 		status = determineStatus(categoryScore, s.metricsProcessor.leversConfig.Global.Thresholds)
 	}
 
+	// Determine KPI status
+	var kpiStatus TrafficLightStatus
+	if len(kpiScores) > 0 {
+		if categoryKPIThresholds, exists := s.metricsProcessor.leversConfig.Weights.CategoryKPIThresholds[categoryID]; exists {
+			kpiStatus = determineStatus(kpiScore, categoryKPIThresholds)
+		} else {
+			kpiStatus = determineStatus(kpiScore, s.metricsProcessor.leversConfig.Global.KPIThresholds)
+		}
+	} else {
+		kpiStatus = Yellow // Default if no KPIs
+	}
+
+	// Determine KRI status
+	var kriStatus TrafficLightStatus
+	if len(kriScores) > 0 {
+		if categoryKRIThresholds, exists := s.metricsProcessor.leversConfig.Weights.CategoryKRIThresholds[categoryID]; exists {
+			kriStatus = determineStatus(kriScore, categoryKRIThresholds)
+		} else {
+			kriStatus = determineStatus(kriScore, s.metricsProcessor.leversConfig.Global.KRIThresholds)
+		}
+	} else {
+		kriStatus = Yellow // Default if no KRIs
+	}
+
 	return &CategoryScore{
-		ID:      categoryID,
-		Name:    category.Name,
-		Score:   categoryScore,
-		Status:  status,
-		Metrics: metricScores,
+		ID:        categoryID,
+		Name:      category.Name,
+		Score:     categoryScore,
+		KPIScore:  kpiScore,
+		KRIScore:  kriScore,
+		Status:    status,
+		KPIStatus: kpiStatus,
+		KRIStatus: kriStatus,
+		Metrics:   metricScores,
 	}, nil
 }
 
@@ -348,7 +407,11 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 	// Calculate scores for each category
 	var categoryScores []CategoryScore
 	var scores []int
+	var kpiScores []int
+	var kriScores []int
 	var weights []float64
+	var kpiWeights []float64
+	var kriWeights []float64
 
 	for _, category := range categories {
 		categoryScore, err := s.CalculateCategoryScore(category.ID)
@@ -371,6 +434,17 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 
 		scores = append(scores, categoryScore.Score)
 		weights = append(weights, weight)
+
+		// Add KPI and KRI scores and weights if they exist
+		if categoryScore.KPIScore > 0 {
+			kpiScores = append(kpiScores, categoryScore.KPIScore)
+			kpiWeights = append(kpiWeights, weight)
+		}
+
+		if categoryScore.KRIScore > 0 {
+			kriScores = append(kriScores, categoryScore.KRIScore)
+			kriWeights = append(kriWeights, weight)
+		}
 	}
 
 	if len(categoryScores) == 0 {
@@ -385,12 +459,51 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 		overallScore = calculateWeightedAverage(scores, weights)
 	}
 
-	// Determine status
+	// Calculate KPI and KRI scores
+	var kpiScore, kriScore int
+
+	if len(kpiScores) > 0 {
+		if s.scoringMethod == MedianScoring {
+			kpiScore = calculateWeightedMedian(kpiScores, kpiWeights)
+		} else {
+			kpiScore = calculateWeightedAverage(kpiScores, kpiWeights)
+		}
+	}
+
+	if len(kriScores) > 0 {
+		if s.scoringMethod == MedianScoring {
+			kriScore = calculateWeightedMedian(kriScores, kriWeights)
+		} else {
+			kriScore = calculateWeightedAverage(kriScores, kriWeights)
+		}
+	}
+
+	// Determine overall status
 	status := determineStatus(overallScore, s.metricsProcessor.leversConfig.Global.Thresholds)
+
+	// Determine KPI status
+	var kpiStatus TrafficLightStatus
+	if len(kpiScores) > 0 {
+		kpiStatus = determineStatus(kpiScore, s.metricsProcessor.leversConfig.Global.KPIThresholds)
+	} else {
+		kpiStatus = Yellow // Default if no KPIs
+	}
+
+	// Determine KRI status
+	var kriStatus TrafficLightStatus
+	if len(kriScores) > 0 {
+		kriStatus = determineStatus(kriScore, s.metricsProcessor.leversConfig.Global.KRIThresholds)
+	} else {
+		kriStatus = Yellow // Default if no KRIs
+	}
 
 	return &OverallScore{
 		Score:      overallScore,
+		KPIScore:   kpiScore,
+		KRIScore:   kriScore,
 		Status:     status,
+		KPIStatus:  kpiStatus,
+		KRIStatus:  kriStatus,
 		Categories: categoryScores,
 	}, nil
 }

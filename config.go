@@ -393,6 +393,26 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		  red:
 		    min: 0
 		    max: 59
+		kpi_thresholds:
+		  green:
+		    min: 85
+		    max: 100
+		  yellow:
+		    min: 65
+		    max: 84
+		  red:
+		    min: 0
+		    max: 64
+		kri_thresholds:
+		  green:
+		    min: 75
+		    max: 100
+		  yellow:
+		    min: 55
+		    max: 74
+		  red:
+		    min: 0
+		    max: 54
 		
 weights:
 		categories:
@@ -410,7 +430,29 @@ weights:
 		      max: 84
 		    red:
 		      min: 0
-		      max: 69`
+		      max: 69
+		category_kpi_thresholds:
+		  "compliance":
+		    green:
+		      min: 90
+		      max: 100
+		    yellow:
+		      min: 75
+		      max: 89
+		    red:
+		      min: 0
+		      max: 74
+		category_kri_thresholds:
+		  "compliance":
+		    green:
+		      min: 80
+		      max: 100
+		    yellow:
+		      min: 65
+		      max: 79
+		    red:
+		      min: 0
+		      max: 64`
 
 		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0600); err != nil {
 			return fmt.Errorf("failed to create default levers config: %w", err)
