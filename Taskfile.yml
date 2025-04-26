@@ -1,6 +1,7 @@
 version: '3'
 
 vars:
+  REPO: github.com/scottbrown/pulse
   BUILD_DIR: .build
   DIST_DIR: .dist
   TEST_DIR: .test
@@ -11,6 +12,7 @@ vars:
     sh: git rev-parse --abbrev-ref HEAD || echo "main"
   BUILD:
     sh: git rev-parse --short HEAD || echo "unknown"
+  BUILD_FLAGS: "-X {{.REPO}}.Version={{.VERSION}} -X {{.REPO}}.Build={{.BUILD}}"
 
 tasks:
   default:
@@ -44,7 +46,7 @@ tasks:
     desc: Build the CLI application
     deps: [setup, fmt, lint]
     cmds:
-      - go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} cmd/pulse/main.go
+      - go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.REPO}}/cmd
     sources:
       - '**/*.go'
     generates:
@@ -135,15 +137,15 @@ tasks:
       - mkdir -p {{.DIST_DIR}}
       
       # Build for Linux
-      - GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 cmd/pulse/main.go
+      - GOOS=linux GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-linux-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-linux-amd64
       
       # Build for Windows
-      - GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe cmd/pulse/main.go
+      - GOOS=windows GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-windows-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-windows-amd64.exe
       
       # Build for macOS
-      - GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version={{.VERSION}} -X main.build={{.BUILD}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 cmd/pulse/main.go
+      - GOOS=darwin GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-darwin-amd64
 
   all:

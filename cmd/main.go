@@ -5,13 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/scottbrown/pulse"
 	"github.com/spf13/cobra"
-)
-
-// Version information set by build flags
-var (
-	version = "main"
-	build   = "unknown"
 )
 
 var (
@@ -31,7 +26,7 @@ func main() {
 		Use:     "pulse",
 		Short:   "Pulse - Risk and Performance measurement framework CLI",
 		Long:    `A CLI application for reporting on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for security programs.`,
-		Version: fmt.Sprintf("%s (%s)", version, build),
+		Version: fmt.Sprintf("%s (%s)", pulse.Version, pulse.Build),
 	}
 
 	// Set up default directories
@@ -209,7 +204,7 @@ func main() {
 		Short: "Print the version information",
 		Long:  `Print the version and build information of the Pulse CLI.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("Pulse CLI version %s+%s\n", version, build)
+			fmt.Printf("Pulse CLI version %s+%s\n", pulse.Version, pulse.Build)
 		},
 	}
 
