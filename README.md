@@ -2,17 +2,17 @@
 
 # Pulse
 
-A Risk and Performance measurement framework CLI application for security programs.
+A Risk and Performance measurement framework CLI application for organizational programs (e.g.  Information Security, Legal).
 
 ## Overview
 
-Pulse is a command-line tool designed to report on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for security programs. It provides a flexible framework for defining, measuring, and reporting on security metrics across multiple categories.
+Pulse is a command-line tool designed to report on Key Performance Indicators (KPIs) and Key Risk Indicators (KRIs) for programs. It provides a flexible framework for defining, measuring, and reporting on metrics across multiple categories.
 
 ## Features
 
 - **YAML-based Configuration**: Define KPIs, KRIs, categories, and scoring mechanisms using simple YAML files
 - **Static Data Storage**: Store metrics in YAML files for simplicity and version control
-- **Flexible Reporting**: Generate reports on overall security posture or drill down into specific categories
+- **Flexible Reporting**: Generate reports on overall posture or drill down into specific categories
 - **Customizable Scoring**: Configure weights and thresholds for scoring at both global and category levels
 - **Executive Levers**: Adjust scoring parameters to reflect organizational priorities
 
@@ -124,7 +124,7 @@ go build -o pulse cmd/pulse/main.go
 ## Usage
 
 ```bash
-# Display overall security posture
+# Display overall posture
 pulse report
 
 # Display metrics for a specific category
