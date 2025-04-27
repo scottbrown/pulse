@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var validateWeightsCmd = &cobra.Command{
+	Use:   "validate-weights",
+	Short: "Validate category weights",
+	Long:  `Validate that category weights add up to 100%.`,
+	Run:   runValidateWeightsCmd,
+}
+
 // runValidateWeightsCmd validates that category weights add up to 100%
 func runValidateWeightsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

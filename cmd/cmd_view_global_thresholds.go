@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var globalThresholdsCmd = &cobra.Command{
+	Use:   "global-thresholds",
+	Short: "View global thresholds",
+	Long:  `View global thresholds for the traffic light model (green, yellow, red).`,
+	Run:   runViewGlobalThresholdsCmd,
+}
+
 // runViewGlobalThresholdsCmd displays global thresholds
 func runViewGlobalThresholdsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

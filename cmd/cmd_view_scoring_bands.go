@@ -6,6 +6,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var scoringBandsCmd = &cobra.Command{
+	Use:   "scoring-bands",
+	Short: "View scoring bands",
+	Long:  `View scoring bands used for calculating scores.`,
+	Run:   runViewScoringBandsCmd,
+}
+
 // runViewScoringBandsCmd displays scoring bands
 func runViewScoringBandsCmd(cmd *cobra.Command, args []string) {
 	// Note: We don't need to load any configs since we're just showing the concept

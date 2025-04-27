@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var categoryWeightsCmd = &cobra.Command{
+	Use:   "category-weights",
+	Short: "View category weights",
+	Long:  `View weights assigned to each category for overall score calculation.`,
+	Run:   runViewCategoryWeightsCmd,
+}
+
 // runViewCategoryWeightsCmd displays category weights
 func runViewCategoryWeightsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

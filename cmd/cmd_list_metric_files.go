@@ -9,6 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add list-files subcommand
+var listFilesCmd = &cobra.Command{
+	Use:   "list-files",
+	Short: "List all metric files",
+	Long:  `List all metric files in the metrics directory.`,
+	Run:   runListMetricFilesCmd,
+}
+
 func runListMetricFilesCmd(cmd *cobra.Command, args []string) {
 	// Get metrics directory
 	metricsDir := filepath.Join(dataDir, "metrics")

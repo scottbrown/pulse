@@ -9,6 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add init command
+var initCmd = &cobra.Command{
+	Use:   "init [directory]",
+	Short: "Initialize configuration files",
+	Long:  `Create default configuration files in the specified directory. If no directory is provided, files will be created in the default location (~/.pulse/).`,
+	Args:  cobra.MaximumNArgs(1),
+	Run:   runInitCmd,
+}
+
 func runInitCmd(cmd *cobra.Command, args []string) {
 	var targetConfigDir, targetDataDir string
 

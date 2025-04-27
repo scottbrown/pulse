@@ -11,6 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var updateCmd = &cobra.Command{
+	Use:   "update",
+	Short: "Update a metric value",
+	Long:  `Update the value of a specific metric.`,
+	Run:   runUpdateCmd,
+}
+
 func runUpdateCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
 	configLoader := pulse.NewConfigLoader(configDir, dataDir)

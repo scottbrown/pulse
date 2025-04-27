@@ -8,6 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add report command
+var reportCmd = &cobra.Command{
+	Use:   "report",
+	Short: "Generate a security posture report",
+	Long:  `Generate a report on the security posture based on the configured KPIs and KRIs.`,
+	Run:   runReportCmd,
+}
+
 func runReportCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
 	configLoader := pulse.NewConfigLoader(configDir, dataDir)

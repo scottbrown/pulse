@@ -8,6 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add categories subcommand
+var categoriesCmd = &cobra.Command{
+	Use:   "categories",
+	Short: "List all available categories",
+	Long:  `List all available categories with their KPIs and KRIs.`,
+	Run:   runListCategoriesCmd,
+}
+
 func runListCategoriesCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
 	configLoader := pulse.NewConfigLoader(configDir, dataDir)

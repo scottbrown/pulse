@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var validateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate all lever configurations",
+	Long:  `Validate both category weights and threshold configurations.`,
+	Run:   runValidateLeversCmd,
+}
+
 // runValidateLeversCmd validates both category weights and threshold configurations
 func runValidateLeversCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

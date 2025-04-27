@@ -8,6 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add levers subcommands
+var allLeversCmd = &cobra.Command{
+	Use:   "all",
+	Short: "View all configuration levers",
+	Long:  `View all configuration levers including global weights, category weights, global thresholds, and scoring bands.`,
+	Run:   runViewAllLeversCmd,
+}
+
 // runViewAllLeversCmd displays all configuration levers
 func runViewAllLeversCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

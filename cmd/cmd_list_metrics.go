@@ -8,6 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Add list metrics subcommand
+var listMetricsCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all available metrics",
+	Long:  `List all available metrics with their current values.`,
+	Run:   runListMetricsCmd,
+}
+
 func runListMetricsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
 	configLoader := pulse.NewConfigLoader(configDir, dataDir)

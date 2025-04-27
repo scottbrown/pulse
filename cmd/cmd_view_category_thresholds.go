@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var categoryThresholdsCmd = &cobra.Command{
+	Use:   "category-thresholds",
+	Short: "View category-specific thresholds",
+	Long:  `View category-specific thresholds for the traffic light model.`,
+	Run:   runViewCategoryThresholdsCmd,
+}
+
 // runViewCategoryThresholdsCmd displays category-specific thresholds
 func runViewCategoryThresholdsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader

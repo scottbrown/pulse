@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var validateThresholdsCmd = &cobra.Command{
+	Use:   "validate-thresholds",
+	Short: "Validate threshold configurations",
+	Long:  `Validate that global and category-specific thresholds do not overlap and follow the correct order (Red < Yellow < Green).`,
+	Run:   runValidateThresholdsCmd,
+}
+
 // runValidateThresholdsCmd validates that threshold ranges are valid and don't overlap
 func runValidateThresholdsCmd(cmd *cobra.Command, args []string) {
 	// Initialize the config loader
