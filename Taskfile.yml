@@ -37,14 +37,28 @@ tasks:
     cmds:
       - go fmt ./...
 
-  lint:
+  check:
+    desc: "Run all security scans"
+    deps: [ sast, vet, vuln ]
+
+  sast:
+    desc: "Scans for code vulns"
+    cmds:
+      - gosec ./...
+
+  vet:
     desc: Lint Go code
     cmds:
       - go vet ./...
 
+  vuln:
+    desc: "Scans for 3rd party lib vulns"
+    cmds:
+      - govulncheck ./...
+
   build:
     desc: Build the CLI application
-    deps: [setup, fmt, lint]
+    deps: [setup, fmt]
     cmds:
       - go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.REPO}}/cmd
     sources:
