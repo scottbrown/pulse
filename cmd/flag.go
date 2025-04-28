@@ -11,10 +11,10 @@ var (
 	scoringMethod string
 )
 
-func setupFlags(configDir, dataDir string) {
+func setupFlags(defaultConfigDir, defaultDataDir string) {
 	// Add persistent flags for config and data directories
-	rootCmd.PersistentFlags().StringVar(&configDir, "config-dir", configDir, "Directory containing configuration files")
-	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", dataDir, "Directory containing data files")
+	rootCmd.PersistentFlags().StringVar(&configDir, "config-dir", defaultConfigDir, "Directory containing configuration files")
+	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", defaultDataDir, "Directory containing data files")
 
 	reportCmd.Flags().StringVarP(&category, "category", "c", "", "Generate report for a specific category")
 	reportCmd.Flags().StringVarP(&format, "format", "f", "text", "Report format (text or json)")

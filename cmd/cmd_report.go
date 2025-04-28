@@ -39,6 +39,13 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Check if we have any categories defined
+	if len(metricsConfig.Categories) == 0 {
+		fmt.Println("No categories defined in metrics configuration.")
+		fmt.Println("Please create a metrics.yaml file in your config directory or run 'pulse init' to create default configuration files.")
+		os.Exit(0)
+	}
+
 	// Initialize the metrics processor
 	metricsProcessor := pulse.NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
 
@@ -72,6 +79,11 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if reportErr != nil {
+		if reportErr.Error() == "no categories found" {
+			fmt.Println("No categories defined in metrics configuration.")
+			fmt.Println("Please create a metrics.yaml file in your config directory or run 'pulse init' to create default configuration files.")
+			os.Exit(0)
+		}
 		fmt.Printf("Error generating report: %v\n", reportErr)
 		os.Exit(1)
 	}

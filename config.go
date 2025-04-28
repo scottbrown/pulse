@@ -64,6 +64,12 @@ func (c *ConfigLoader) LoadMetricsConfig() (*MetricsConfig, error) {
 	path := filepath.Join(c.ConfigDir, "metrics.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		// If the file doesn't exist, return an empty config instead of an error
+		if os.IsNotExist(err) {
+			return &MetricsConfig{
+				Categories: []Category{},
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to read metrics config file: %w", err)
 	}
 
@@ -85,6 +91,10 @@ func (c *ConfigLoader) LoadLeversConfig() (*LeversConfig, error) {
 	path := filepath.Join(c.ConfigDir, "levers.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		// If the file doesn't exist, return an empty config instead of an error
+		if os.IsNotExist(err) {
+			return &LeversConfig{}, nil
+		}
 		return nil, fmt.Errorf("failed to read levers config file: %w", err)
 	}
 
@@ -181,6 +191,12 @@ func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
 	path := filepath.Join(c.DataDir, "metrics.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
+		// If the file doesn't exist, return an empty metrics data instead of an error
+		if os.IsNotExist(err) {
+			return &MetricsData{
+				Metrics: []Metric{},
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to read metrics data file: %w", err)
 	}
 
