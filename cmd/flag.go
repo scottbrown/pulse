@@ -1,11 +1,5 @@
 package main
 
-import (
-	"fmt"
-	"os"
-	"path/filepath"
-)
-
 var (
 	configDir     string
 	dataDir       string
@@ -16,18 +10,6 @@ var (
 	metricVal     string
 	scoringMethod string
 )
-
-func setupDefaultDirs() (string, string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", "", fmt.Errorf("Error getting home directory: %w", err)
-	}
-
-	configDir := filepath.Join(homeDir, defaultConfigDirName, "config")
-	dataDir := filepath.Join(homeDir, defaultConfigDirName, "data")
-
-	return configDir, dataDir, nil
-}
 
 func setupFlags(configDir, dataDir string) {
 	// Add persistent flags for config and data directories
@@ -43,18 +25,4 @@ func setupFlags(configDir, dataDir string) {
 	updateCmd.Flags().StringVarP(&metricVal, "value", "v", "", "Metric value")
 	updateCmd.MarkFlagRequired("metric")
 	updateCmd.MarkFlagRequired("value")
-}
-
-func setupCommands() {
-	// Add subcommands to levers command
-	leversCmd.AddCommand(allLeversCmd, globalThresholdsCmd, scoringBandsCmd, categoryWeightsCmd, categoryThresholdsCmd, validateCmd, validateWeightsCmd, validateThresholdsCmd)
-
-	// Add subcommands to metrics command
-	metricsCmd.AddCommand(listMetricsCmd, listFilesCmd, createFileCmd)
-
-	// Add subcommands to list command
-	listCmd.AddCommand(categoriesCmd)
-
-	// Add commands to root command
-	rootCmd.AddCommand(reportCmd, updateCmd, listCmd, metricsCmd, leversCmd, initCmd, versionCmd)
 }
