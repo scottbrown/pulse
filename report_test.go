@@ -21,7 +21,6 @@ func TestReportGenerator(t *testing.T) {
 						Name:        "Test KPI",
 						Description: "Test KPI description",
 						Unit:        "count",
-						Target:      10,
 						ScoringBands: []ScoringBand{
 							{Max: FloatPtr(5), Score: 95},
 							{Min: FloatPtr(5), Max: FloatPtr(10), Score: 85},
@@ -37,7 +36,6 @@ func TestReportGenerator(t *testing.T) {
 						Name:        "Test KRI",
 						Description: "Test KRI description",
 						Unit:        "count",
-						Threshold:   5,
 						ScoringBands: []ScoringBand{
 							{Max: FloatPtr(0), Score: 95},
 							{Min: FloatPtr(0), Max: FloatPtr(2), Score: 85},

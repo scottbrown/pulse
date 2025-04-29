@@ -36,26 +36,40 @@ categories:
         name: "Vulnerability Remediation Time"
         description: "Average time to remediate vulnerabilities"
         unit: "days"
-        target: 30
         scoring_bands:
-          band_5: 15  # 0-15 days: 90-100 points
-          band_4: 30  # 16-30 days: 80-89 points
-          band_3: 45  # 31-45 days: 70-79 points
-          band_2: 60  # 46-60 days: 60-69 points
-          band_1: 61  # 61+ days: 0-59 points
+          - score: 95  # 95 points
+            max: 15    # for values 0-15 days
+          - score: 85  # 85 points
+            min: 15    # for values 15-30 days
+            max: 30
+          - score: 75  # 75 points
+            min: 30    # for values 30-45 days
+            max: 45
+          - score: 65  # 65 points
+            min: 45    # for values 45-60 days
+            max: 60
+          - score: 30  # 30 points
+            min: 60    # for values > 60 days
       # More KPIs...
     kris:
       - id: "critical_vulns"
         name: "Critical Vulnerabilities"
         description: "Number of critical vulnerabilities"
         unit: "count"
-        threshold: 5
         scoring_bands:
-          band_5: 0   # 0 vulns: 90-100 points
-          band_4: 2   # 1-2 vulns: 80-89 points
-          band_3: 5   # 3-5 vulns: 70-79 points
-          band_2: 10  # 6-10 vulns: 60-69 points
-          band_1: 11  # 11+ vulns: 0-59 points
+          - score: 95  # 95 points
+            max: 0     # for 0 vulnerabilities
+          - score: 85  # 85 points
+            min: 0     # for 1-2 vulnerabilities
+            max: 2
+          - score: 75  # 75 points
+            min: 2     # for 3-5 vulnerabilities
+            max: 5
+          - score: 65  # 65 points
+            min: 5     # for 6-10 vulnerabilities
+            max: 10
+          - score: 30  # 30 points
+            min: 10    # for > 10 vulnerabilities
       # More KRIs...
   # More categories...
 ```
@@ -66,10 +80,10 @@ categories:
 metrics:
   - reference: "app_sec.KPI.vuln_remediation_time"
     value: 45
-    timestamp: "2025-04-01"
+    timestamp: "2025-04-01T00:00:00Z"
   - reference: "app_sec.KRI.critical_vulns"
     value: 3
-    timestamp: "2025-04-01"
+    timestamp: "2025-04-01T00:00:00Z"
   # More metrics...
 ```
 
@@ -78,18 +92,39 @@ metrics:
 ```yaml
 global:
   thresholds:
-    green: 80  # 80-100 points
-    yellow: 60 # 60-79 points
-    red: 0     # 0-59 points
+    green:
+      min: 80  # Minimum score for green status
+      max: 100 # Maximum score for green status
+    yellow:
+      min: 60  # Minimum score for yellow status
+      max: 79  # Maximum score for yellow status
+    red:
+      min: 0   # Minimum score for red status
+      max: 59  # Maximum score for red status
   
-  # Scoring bands - 5 ranges within each threshold on a 100-point scale
-  scoring_bands:
-    band_5: 90  # 90-100 points
-    band_4: 80  # 80-89 points
-    band_3: 70  # 70-79 points
-    band_2: 60  # 60-69 points
-    band_1: 0   # 0-59 points
+  # KPI and KRI specific thresholds
+  kpi_thresholds:
+    green:
+      min: 85
+      max: 100
+    yellow:
+      min: 65
+      max: 84
+    red:
+      min: 0
+      max: 64
   
+  kri_thresholds:
+    green:
+      min: 75
+      max: 100
+    yellow:
+      min: 55
+      max: 74
+    red:
+      min: 0
+      max: 54
+
 weights:
   categories:
     "app_sec": 0.4  # Application Security
@@ -99,9 +134,15 @@ weights:
   # Category-specific thresholds (optional, overrides global)
   category_thresholds:
     "compliance":
-      green: 85
-      yellow: 70
-      red: 0
+      green:
+        min: 85
+        max: 100
+      yellow:
+        min: 70
+        max: 84
+      red:
+        min: 0
+        max: 69
 ```
 
 ## Installation
@@ -118,7 +159,7 @@ git clone https://github.com/yourusername/pulse.git
 cd pulse
 
 # Build the application
-go build -o pulse cmd/pulse/main.go
+go build -o pulse cmd/main.go
 ```
 
 ## Usage
@@ -171,7 +212,7 @@ You can initialize the configuration files in two ways:
 This will create:
 - `config/metrics.yaml`: Define your KPIs and KRIs organized by categories
 - `config/levers.yaml`: Define scoring weights and thresholds
-- `data/metrics.yaml`: Store your metric values
+- `data/metrics/`: Directory containing metric files organized by category (e.g., `app_sec.yaml`)
 
 You can then customize these files according to your needs.
 
@@ -182,18 +223,30 @@ You can then customize these files according to your needs.
 ```
 pulse/
 ├── cmd/
-│   └── pulse/
-│       └── main.go       # CLI entry point
-├── config.go             # Configuration loading
-├── metrics.go            # Metrics processing
-├── report.go             # Report generation
-├── score.go              # Scoring calculations
-├── types.go              # Type definitions
-├── config/
-│   ├── metrics.yaml
-│   └── levers.yaml
-├── data/
-│   └── metrics.yaml
+│   ├── main.go                      # CLI entry point
+│   ├── cmd_root.go                  # Root command definition
+│   ├── cmd_report.go                # Report command
+│   ├── cmd_update.go                # Update command
+│   ├── cmd_list.go                  # List command
+│   ├── cmd_metrics.go               # Metrics command
+│   ├── cmd_levers.go                # Levers command
+│   ├── cmd_init.go                  # Init command
+│   ├── cmd_version.go               # Version command
+│   └── ...                          # Other command files
+├── config.go                        # Configuration loading
+├── metrics.go                       # Metrics processing
+├── report.go                        # Report generation
+├── score.go                         # Scoring calculations
+├── types.go                         # Type definitions
+├── constants.go                     # Constants
+├── version.go                       # Version information
+├── config/                          # Configuration directory
+│   ├── metrics.yaml                 # Metrics configuration
+│   └── levers.yaml                  # Executive levers configuration
+├── data/                            # Data directory
+│   └── metrics/                     # Metrics data directory
+│       ├── app_sec.yaml             # Application security metrics
+│       └── ...                      # Other metric files
 ├── go.mod
 ├── go.sum
 └── README.md
@@ -206,7 +259,7 @@ The project is structured to be used both as a CLI application and as a library:
 
 ### Adding New Features
 
-1. Define new command in `cmd/pulse/`
+1. Define new command in `cmd/`
 2. Implement supporting logic in the root package
 3. Update tests
 4. Update documentation
