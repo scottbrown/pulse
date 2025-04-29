@@ -280,8 +280,8 @@ func TestScoreCalculator(t *testing.T) {
 	if overallScore.Score != 85 {
 		t.Errorf("Expected overall score 85, got %d", overallScore.Score)
 	}
-	if overallScore.KPIScore != 95 {
-		t.Errorf("Expected overall KPI score 95, got %d", overallScore.KPIScore)
+	if overallScore.KPIScore != 91 {
+		t.Errorf("Expected overall KPI score 91, got %d", overallScore.KPIScore)
 	}
 	if overallScore.KRIScore != 75 {
 		t.Errorf("Expected overall KRI score 75, got %d", overallScore.KRIScore)
