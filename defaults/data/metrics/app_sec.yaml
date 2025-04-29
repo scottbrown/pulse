@@ -1,0 +1,7 @@
+metrics:
+- reference: "app_sec.KPI.vuln_remediation_time"
+  value: 45
+  timestamp: "2025-04-01T00:00:00Z"
+- reference: "app_sec.KRI.critical_vulns"
+  value: 3
+  timestamp: "2025-04-01T00:00:00Z"

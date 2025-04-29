@@ -2,6 +2,7 @@ package pulse
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed defaults/config/* defaults/data/metrics/*
+var defaultFiles embed.FS
 
 // Global mutex for file operations
 var fileLock sync.Mutex
@@ -342,189 +346,51 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Create default metrics config if it doesn't exist
-	metricsConfigPath := filepath.Join(c.ConfigDir, "metrics.yaml")
-	if _, err := os.Stat(metricsConfigPath); os.IsNotExist(err) {
-		defaultMetricsConfig := `categories:
-		- id: "app_sec"
-		  name: "Application Security"
-		  description: "Metrics related to application security posture"
-		  kpis:
-		    - id: "vuln_remediation_time"
-		      name: "Vulnerability Remediation Time"
-		      description: "Average time to remediate vulnerabilities"
-		      unit: "days"
-		      scoring_bands:
-		        - score: 95
-		          max: 15
-		        - score: 85
-		          min: 15
-		          max: 30
-		        - score: 75
-		          min: 30
-		          max: 45
-		        - score: 65
-		          min: 45
-		          max: 60
-		        - score: 30
-		          min: 60
-		  kris:
-		    - id: "critical_vulns"
-		      name: "Critical Vulnerabilities"
-		      description: "Number of critical vulnerabilities"
-		      unit: "count"
-		      scoring_bands:
-		        - score: 95
-		          max: 0
-		        - score: 85
-		          min: 0
-		          max: 2
-		        - score: 75
-		          min: 2
-		          max: 5
-		        - score: 65
-		          min: 5
-		          max: 10
-		        - score: 30
-		          min: 10`
-
-		if err := os.WriteFile(metricsConfigPath, []byte(defaultMetricsConfig), 0600); err != nil {
-			return fmt.Errorf("failed to create default metrics config: %w", err)
-		}
-	}
-
-	// Create default levers config if it doesn't exist
-	leversConfigPath := filepath.Join(c.ConfigDir, "levers.yaml")
-	if _, err := os.Stat(leversConfigPath); os.IsNotExist(err) {
-		defaultLeversConfig := `global:
-		thresholds:
-		  green:
-		    min: 80
-		    max: 100
-		  yellow:
-		    min: 60
-		    max: 79
-		  red:
-		    min: 0
-		    max: 59
-		kpi_thresholds:
-		  green:
-		    min: 85
-		    max: 100
-		  yellow:
-		    min: 65
-		    max: 84
-		  red:
-		    min: 0
-		    max: 64
-		kri_thresholds:
-		  green:
-		    min: 75
-		    max: 100
-		  yellow:
-		    min: 55
-		    max: 74
-		  red:
-		    min: 0
-		    max: 54
-		
-weights:
-		categories:
-		  "app_sec": 0.4
-		  "infra_sec": 0.3
-		  "compliance": 0.3
-		
-		category_thresholds:
-		  "compliance":
-		    green:
-		      min: 85
-		      max: 100
-		    yellow:
-		      min: 70
-		      max: 84
-		    red:
-		      min: 0
-		      max: 69
-		category_kpi_thresholds:
-		  "compliance":
-		    green:
-		      min: 90
-		      max: 100
-		    yellow:
-		      min: 75
-		      max: 89
-		    red:
-		      min: 0
-		      max: 74
-		category_kri_thresholds:
-		  "compliance":
-		    green:
-		      min: 80
-		      max: 100
-		    yellow:
-		      min: 65
-		      max: 79
-		    red:
-		      min: 0
-		      max: 64`
-
-		if err := os.WriteFile(leversConfigPath, []byte(defaultLeversConfig), 0600); err != nil {
-			return fmt.Errorf("failed to create default levers config: %w", err)
-		}
-	}
-
-	// Create metrics directory and default metrics files
+	// Create metrics directory
 	metricsDir := filepath.Join(c.DataDir, "metrics")
 	if err := os.MkdirAll(metricsDir, 0700); err != nil {
 		return fmt.Errorf("failed to create metrics directory: %w", err)
 	}
 
-	// Create app_sec metrics file
-	appSecPath := filepath.Join(metricsDir, "app_sec.yaml")
-	if _, err := os.Stat(appSecPath); os.IsNotExist(err) {
-		appSecData := `metrics:
-		- reference: "app_sec.KPI.vuln_remediation_time"
-		  value: 45
-		  timestamp: "2025-04-01T00:00:00Z"
-		- reference: "app_sec.KRI.critical_vulns"
-		  value: 3
-		  timestamp: "2025-04-01T00:00:00Z"`
-
-		if err := os.WriteFile(appSecPath, []byte(appSecData), 0600); err != nil {
-			return fmt.Errorf("failed to create app_sec metrics file: %w", err)
+	// Helper function to copy embedded file to destination
+	copyEmbeddedFile := func(embeddedPath, destPath string) error {
+		// Check if destination file already exists
+		if _, err := os.Stat(destPath); err == nil {
+			// File exists, skip
+			return nil
 		}
+
+		// Read embedded file
+		data, err := defaultFiles.ReadFile(embeddedPath)
+		if err != nil {
+			return fmt.Errorf("failed to read embedded file %s: %w", embeddedPath, err)
+		}
+
+		// Write to destination
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
+			return fmt.Errorf("failed to write file %s: %w", destPath, err)
+		}
+
+		return nil
 	}
 
-	// Create infra_sec metrics file
-	infraSecPath := filepath.Join(metricsDir, "infra_sec.yaml")
-	if _, err := os.Stat(infraSecPath); os.IsNotExist(err) {
-		infraSecData := `metrics:
-		- reference: "infra_sec.KPI.patch_coverage"
-		  value: 94
-		  timestamp: "2025-04-01T00:00:00Z"
-		- reference: "infra_sec.KRI.exposed_services"
-		  value: 4
-		  timestamp: "2025-04-01T00:00:00Z"`
-
-		if err := os.WriteFile(infraSecPath, []byte(infraSecData), 0600); err != nil {
-			return fmt.Errorf("failed to create infra_sec metrics file: %w", err)
-		}
+	// Copy config files
+	if err := copyEmbeddedFile("defaults/config/metrics.yaml", filepath.Join(c.ConfigDir, "metrics.yaml")); err != nil {
+		return err
+	}
+	if err := copyEmbeddedFile("defaults/config/levers.yaml", filepath.Join(c.ConfigDir, "levers.yaml")); err != nil {
+		return err
 	}
 
-	// Create compliance metrics file
-	compliancePath := filepath.Join(metricsDir, "compliance.yaml")
-	if _, err := os.Stat(compliancePath); os.IsNotExist(err) {
-		complianceData := `metrics:
-		- reference: "compliance.KPI.policy_compliance"
-		  value: 92
-		  timestamp: "2025-04-01T00:00:00Z"
-		- reference: "compliance.KRI.open_audit_findings"
-		  value: 7
-		  timestamp: "2025-04-01T00:00:00Z"`
-
-		if err := os.WriteFile(compliancePath, []byte(complianceData), 0600); err != nil {
-			return fmt.Errorf("failed to create compliance metrics file: %w", err)
-		}
+	// Copy metrics data files
+	if err := copyEmbeddedFile("defaults/data/metrics/app_sec.yaml", filepath.Join(metricsDir, "app_sec.yaml")); err != nil {
+		return err
+	}
+	if err := copyEmbeddedFile("defaults/data/metrics/infra_sec.yaml", filepath.Join(metricsDir, "infra_sec.yaml")); err != nil {
+		return err
+	}
+	if err := copyEmbeddedFile("defaults/data/metrics/compliance.yaml", filepath.Join(metricsDir, "compliance.yaml")); err != nil {
+		return err
 	}
 
 	return nil

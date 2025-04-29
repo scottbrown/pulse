@@ -1,0 +1,7 @@
+metrics:
+- reference: "infra_sec.KPI.patch_coverage"
+  value: 94
+  timestamp: "2025-04-01T00:00:00Z"
+- reference: "infra_sec.KRI.exposed_services"
+  value: 4
+  timestamp: "2025-04-01T00:00:00Z"
