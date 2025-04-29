@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/scottbrown/pulse"
 	"github.com/spf13/cobra"
@@ -62,7 +63,7 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 
 	// Determine threshold label type
 	var thresholdLabelType pulse.ThresholdLabelType
-	if thresholdLabels == "text" {
+	if strings.EqualFold(thresholdLabels, "text") {
 		thresholdLabelType = pulse.TextLabels
 	} else {
 		// Default to emoji labels
