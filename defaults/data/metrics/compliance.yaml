@@ -1,0 +1,7 @@
+metrics:
+- reference: "compliance.KPI.policy_compliance"
+  value: 92
+  timestamp: "2025-04-01T00:00:00Z"
+- reference: "compliance.KRI.open_audit_findings"
+  value: 7
+  timestamp: "2025-04-01T00:00:00Z"
