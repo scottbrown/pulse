@@ -41,12 +41,12 @@ func runListCategoriesCmd(cmd *cobra.Command, args []string) {
 
 		fmt.Println("  KPIs:")
 		for _, kpi := range category.KPIs {
-			fmt.Printf("  - %s (%s): %s [Target: %.2f %s]\n", kpi.Name, kpi.ID, kpi.Description, kpi.Target, kpi.Unit)
+			fmt.Printf("  - %s (%s): %s [Unit: %s]\n", kpi.Name, kpi.ID, kpi.Description, kpi.Unit)
 		}
 
 		fmt.Println("  KRIs:")
 		for _, kri := range category.KRIs {
-			fmt.Printf("  - %s (%s): %s [Threshold: %.2f %s]\n", kri.Name, kri.ID, kri.Description, kri.Threshold, kri.Unit)
+			fmt.Printf("  - %s (%s): %s [Unit: %s]\n", kri.Name, kri.ID, kri.Description, kri.Unit)
 		}
 
 		fmt.Println()

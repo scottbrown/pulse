@@ -354,7 +354,6 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		      name: "Vulnerability Remediation Time"
 		      description: "Average time to remediate vulnerabilities"
 		      unit: "days"
-		      target: 30
 		      scoring_bands:
 		        - score: 95
 		          max: 15
@@ -374,7 +373,6 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		      name: "Critical Vulnerabilities"
 		      description: "Number of critical vulnerabilities"
 		      unit: "count"
-		      threshold: 5
 		      scoring_bands:
 		        - score: 95
 		          max: 0

@@ -32,7 +32,6 @@ type KPI struct {
 	Name         string        `yaml:"name"`
 	Description  string        `yaml:"description"`
 	Unit         string        `yaml:"unit"`
-	Target       float64       `yaml:"target"`
 	ScoringBands []ScoringBand `yaml:"scoring_bands"`
 }
 
@@ -42,7 +41,6 @@ type KRI struct {
 	Name         string        `yaml:"name"`
 	Description  string        `yaml:"description"`
 	Unit         string        `yaml:"unit"`
-	Threshold    float64       `yaml:"threshold"`
 	ScoringBands []ScoringBand `yaml:"scoring_bands"`
 }
 
