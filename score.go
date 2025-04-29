@@ -451,31 +451,25 @@ func (s *ScoreCalculator) CalculateOverallScore() (*OverallScore, error) {
 		return nil, fmt.Errorf("no categories with metrics found")
 	}
 
-	// Calculate overall score based on scoring method
+	// Calculate overall score as weighted sum of category scores
 	var overallScore int
-	if s.scoringMethod == MedianScoring {
-		overallScore = calculateWeightedMedian(scores, weights)
-	} else {
-		overallScore = calculateWeightedAverage(scores, weights)
+	var weightedSum float64
+	for i := 0; i < len(scores); i++ {
+		weightedSum += float64(scores[i]) * weights[i]
 	}
+	overallScore = int(weightedSum)
 
 	// Calculate KPI and KRI scores
 	var kpiScore, kriScore int
 
 	if len(kpiScores) > 0 {
-		if s.scoringMethod == MedianScoring {
-			kpiScore = calculateWeightedMedian(kpiScores, kpiWeights)
-		} else {
-			kpiScore = calculateWeightedAverage(kpiScores, kpiWeights)
-		}
+		// Always use weighted average for overall scores, regardless of scoring method
+		kpiScore = calculateWeightedAverage(kpiScores, kpiWeights)
 	}
 
 	if len(kriScores) > 0 {
-		if s.scoringMethod == MedianScoring {
-			kriScore = calculateWeightedMedian(kriScores, kriWeights)
-		} else {
-			kriScore = calculateWeightedAverage(kriScores, kriWeights)
-		}
+		// Always use weighted average for overall scores, regardless of scoring method
+		kriScore = calculateWeightedAverage(kriScores, kriWeights)
 	}
 
 	// Determine overall status
