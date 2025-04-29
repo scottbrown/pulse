@@ -46,15 +46,27 @@ type jsonCategoryReport struct {
 	Metrics      []jsonMetric `json:"metrics"`
 }
 
+// ThresholdLabelType defines the type of threshold labels to use
+type ThresholdLabelType string
+
+const (
+	// EmojiLabels uses emoji symbols for threshold labels
+	EmojiLabels ThresholdLabelType = "emoji"
+	// TextLabels uses text labels for thresholds
+	TextLabels ThresholdLabelType = "text"
+)
+
 // ReportGenerator handles generation of reports
 type ReportGenerator struct {
 	scoreCalculator *ScoreCalculator
+	labelType       ThresholdLabelType
 }
 
 // NewReportGenerator creates a new ReportGenerator
-func NewReportGenerator(scoreCalculator *ScoreCalculator) *ReportGenerator {
+func NewReportGenerator(scoreCalculator *ScoreCalculator, labelType ThresholdLabelType) *ReportGenerator {
 	return &ReportGenerator{
 		scoreCalculator: scoreCalculator,
+		labelType:       labelType,
 	}
 }
 
@@ -122,8 +134,8 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 	var sb strings.Builder
 
 	sb.WriteString("===== SECURITY POSTURE REPORT =====\n\n")
-	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, formatStatus(score.KPIStatus)))
-	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, formatStatus(score.KRIStatus)))
+	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, r.formatStatus(score.KPIStatus)))
+	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, r.formatStatus(score.KRIStatus)))
 	sb.WriteString(fmt.Sprintf("Report Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 
 	sb.WriteString("Category Scores:\n")
@@ -131,8 +143,8 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 	for _, category := range score.Categories {
 		sb.WriteString(fmt.Sprintf("- %s:\n", sanitizeString(category.Name)))
 		sb.WriteString(fmt.Sprintf("  KPI: %d (%s), KRI: %d (%s)\n",
-			category.KPIScore, formatStatus(category.KPIStatus),
-			category.KRIScore, formatStatus(category.KRIStatus)))
+			category.KPIScore, r.formatStatus(category.KPIStatus),
+			category.KRIScore, r.formatStatus(category.KRIStatus)))
 	}
 
 	sb.WriteString("\nDetailed Metrics:\n")
@@ -144,7 +156,7 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 			if len(parts) == 3 {
 				metricType := parts[1]
 				metricID := parts[2]
-				sb.WriteString(fmt.Sprintf("  - %s %s: %d (%s)\n", sanitizeString(metricType), sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+				sb.WriteString(fmt.Sprintf("  - %s %s: %d (%s)\n", sanitizeString(metricType), sanitizeString(metricID), metric.Score, r.formatStatus(metric.Status)))
 			}
 		}
 	}
@@ -157,8 +169,8 @@ func (r *ReportGenerator) formatCategoryReportAsText(score *CategoryScore) strin
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("===== %s REPORT =====\n\n", strings.ToUpper(sanitizeString(score.Name))))
-	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, formatStatus(score.KPIStatus)))
-	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, formatStatus(score.KRIStatus)))
+	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, r.formatStatus(score.KPIStatus)))
+	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, r.formatStatus(score.KRIStatus)))
 	sb.WriteString(fmt.Sprintf("Report Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 
 	sb.WriteString("Metrics:\n")
@@ -187,7 +199,7 @@ func (r *ReportGenerator) formatCategoryReportAsText(score *CategoryScore) strin
 			parts := strings.Split(metric.Reference, ".")
 			if len(parts) == 3 {
 				metricID := parts[2]
-				sb.WriteString(fmt.Sprintf("- KPI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+				sb.WriteString(fmt.Sprintf("- KPI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, r.formatStatus(metric.Status)))
 			}
 		}
 	}
@@ -199,7 +211,7 @@ func (r *ReportGenerator) formatCategoryReportAsText(score *CategoryScore) strin
 			parts := strings.Split(metric.Reference, ".")
 			if len(parts) == 3 {
 				metricID := parts[2]
-				sb.WriteString(fmt.Sprintf("- KRI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, formatStatus(metric.Status)))
+				sb.WriteString(fmt.Sprintf("- KRI %s: %d (%s)\n", sanitizeString(metricID), metric.Score, r.formatStatus(metric.Status)))
 			}
 		}
 	}
@@ -281,15 +293,29 @@ func (r *ReportGenerator) formatCategoryReportAsJSON(score *CategoryScore) (stri
 }
 
 // formatStatus formats a traffic light status for display
-func formatStatus(status TrafficLightStatus) string {
-	switch status {
-	case Green:
-		return "GREEN"
-	case Yellow:
-		return "YELLOW"
-	case Red:
-		return "RED"
-	default:
-		return "UNKNOWN"
+func (r *ReportGenerator) formatStatus(status TrafficLightStatus) string {
+	if r.labelType == TextLabels {
+		switch status {
+		case Green:
+			return "GREEN"
+		case Yellow:
+			return "YELLOW"
+		case Red:
+			return "RED"
+		default:
+			return "UNKNOWN"
+		}
+	} else {
+		// Default to emoji labels
+		switch status {
+		case Green:
+			return "🟢" // Green circle
+		case Yellow:
+			return "🟡" // Yellow circle
+		case Red:
+			return "🔴" // Red circle
+		default:
+			return "❓" // Question mark
+		}
 	}
 }

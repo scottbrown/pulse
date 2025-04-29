@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/scottbrown/pulse"
 	"github.com/spf13/cobra"
@@ -60,8 +61,17 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 
 	scoreCalculator := pulse.NewScoreCalculator(metricsProcessor, scoringMethodEnum)
 
+	// Determine threshold label type
+	var thresholdLabelType pulse.ThresholdLabelType
+	if strings.EqualFold(thresholdLabels, "text") {
+		thresholdLabelType = pulse.TextLabels
+	} else {
+		// Default to emoji labels
+		thresholdLabelType = pulse.EmojiLabels
+	}
+
 	// Initialize the report generator
-	reportGenerator := pulse.NewReportGenerator(scoreCalculator)
+	reportGenerator := pulse.NewReportGenerator(scoreCalculator, thresholdLabelType)
 
 	// Generate the report
 	var reportContent string

@@ -124,8 +124,8 @@ func TestReportGenerator(t *testing.T) {
 	// Create a ScoreCalculator with median scoring (default)
 	calculator := NewScoreCalculator(processor, MedianScoring)
 
-	// Create a ReportGenerator
-	generator := NewReportGenerator(calculator)
+	// Create a ReportGenerator with text labels for testing
+	generator := NewReportGenerator(calculator, TextLabels)
 
 	// Test GenerateOverallReport with TextFormat
 	textReport, err := generator.GenerateOverallReport(TextFormat)
@@ -248,17 +248,34 @@ func TestReportGenerator(t *testing.T) {
 		t.Error("Expected error for non-existent category, got nil")
 	}
 
-	// Test formatStatus
-	if formatStatus(Green) != "GREEN" {
-		t.Errorf("Expected formatStatus(Green) to be 'GREEN', got '%s'", formatStatus(Green))
+	// Test formatStatus with text labels
+	if generator.formatStatus(Green) != "GREEN" {
+		t.Errorf("Expected generator.formatStatus(Green) to be 'GREEN', got '%s'", generator.formatStatus(Green))
 	}
-	if formatStatus(Yellow) != "YELLOW" {
-		t.Errorf("Expected formatStatus(Yellow) to be 'YELLOW', got '%s'", formatStatus(Yellow))
+	if generator.formatStatus(Yellow) != "YELLOW" {
+		t.Errorf("Expected generator.formatStatus(Yellow) to be 'YELLOW', got '%s'", generator.formatStatus(Yellow))
 	}
-	if formatStatus(Red) != "RED" {
-		t.Errorf("Expected formatStatus(Red) to be 'RED', got '%s'", formatStatus(Red))
+	if generator.formatStatus(Red) != "RED" {
+		t.Errorf("Expected generator.formatStatus(Red) to be 'RED', got '%s'", generator.formatStatus(Red))
 	}
-	if formatStatus("unknown") != "UNKNOWN" {
-		t.Errorf("Expected formatStatus('unknown') to be 'UNKNOWN', got '%s'", formatStatus("unknown"))
+	if generator.formatStatus("unknown") != "UNKNOWN" {
+		t.Errorf("Expected generator.formatStatus('unknown') to be 'UNKNOWN', got '%s'", generator.formatStatus("unknown"))
+	}
+
+	// Create a ReportGenerator with emoji labels for testing
+	emojiGenerator := NewReportGenerator(calculator, EmojiLabels)
+
+	// Test formatStatus with emoji labels
+	if emojiGenerator.formatStatus(Green) != "🟢" {
+		t.Errorf("Expected emojiGenerator.formatStatus(Green) to be '🟢', got '%s'", emojiGenerator.formatStatus(Green))
+	}
+	if emojiGenerator.formatStatus(Yellow) != "🟡" {
+		t.Errorf("Expected emojiGenerator.formatStatus(Yellow) to be '🟡', got '%s'", emojiGenerator.formatStatus(Yellow))
+	}
+	if emojiGenerator.formatStatus(Red) != "🔴" {
+		t.Errorf("Expected emojiGenerator.formatStatus(Red) to be '🔴', got '%s'", emojiGenerator.formatStatus(Red))
+	}
+	if emojiGenerator.formatStatus("unknown") != "❓" {
+		t.Errorf("Expected emojiGenerator.formatStatus('unknown') to be '❓', got '%s'", emojiGenerator.formatStatus("unknown"))
 	}
 }
