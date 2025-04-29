@@ -60,8 +60,17 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 
 	scoreCalculator := pulse.NewScoreCalculator(metricsProcessor, scoringMethodEnum)
 
+	// Determine threshold label type
+	var thresholdLabelType pulse.ThresholdLabelType
+	if thresholdLabels == "text" {
+		thresholdLabelType = pulse.TextLabels
+	} else {
+		// Default to emoji labels
+		thresholdLabelType = pulse.EmojiLabels
+	}
+
 	// Initialize the report generator
-	reportGenerator := pulse.NewReportGenerator(scoreCalculator)
+	reportGenerator := pulse.NewReportGenerator(scoreCalculator, thresholdLabelType)
 
 	// Generate the report
 	var reportContent string
