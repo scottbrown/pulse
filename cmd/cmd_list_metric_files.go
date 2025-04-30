@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -13,24 +12,21 @@ import (
 var listFilesCmd = &cobra.Command{
 	Use:   "list-files",
 	Short: "List all metric files",
-	Long:  `List all metric files in the metrics directory.`,
+	Long:  `List all metric files in the data directory.`,
 	Run:   runListMetricFilesCmd,
 }
 
 func runListMetricFilesCmd(cmd *cobra.Command, args []string) {
-	// Get metrics directory
-	metricsDir := filepath.Join(dataDir, "metrics")
-
-	// Check if metrics directory exists
-	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
-		fmt.Println("Metrics directory does not exist.")
+	// Check if data directory exists
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		fmt.Println("Data directory does not exist.")
 		return
 	}
 
-	// Read all files in the metrics directory
-	files, err := os.ReadDir(metricsDir)
+	// Read all files in the data directory
+	files, err := os.ReadDir(dataDir)
 	if err != nil {
-		fmt.Printf("Error reading metrics directory: %v\n", err)
+		fmt.Printf("Error reading data directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -50,11 +46,5 @@ func runListMetricFilesCmd(cmd *cobra.Command, args []string) {
 		if strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") {
 			fmt.Println(file.Name())
 		}
-	}
-
-	// Check for legacy file
-	legacyPath := filepath.Join(dataDir, "metrics.yaml")
-	if _, err := os.Stat(legacyPath); err == nil {
-		fmt.Println("metrics.yaml (legacy format)")
 	}
 }

@@ -3,6 +3,7 @@ package pulse
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,11 +28,6 @@ func TestConfigLoader(t *testing.T) {
 
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		t.Fatalf("Failed to create data directory: %v", err)
-	}
-
-	metricsDir := filepath.Join(dataDir, "metrics")
-	if err := os.MkdirAll(metricsDir, 0755); err != nil {
-		t.Fatalf("Failed to create metrics directory: %v", err)
 	}
 
 	// Create test config files
@@ -72,16 +68,11 @@ func TestConfigLoader(t *testing.T) {
 		t.Fatalf("Failed to write levers config file: %v", err)
 	}
 
-	// Create test metrics file
-	testMetricsData := `metrics:
-  - reference: "test_cat.KPI.test_kpi"
-    value: 10
-    timestamp: "2025-04-01T00:00:00Z"
-  - reference: "test_cat.KRI.test_kri"
-    value: 5
-    timestamp: "2025-04-01T00:00:00Z"`
+	// Create test metrics file with exact format matching default files
+	testMetricsData := "metrics:\n- reference: \"test_cat.KPI.test_kpi\"\n  value: 10\n  timestamp: \"2025-04-01T00:00:00Z\"\n- reference: \"test_cat.KRI.test_kri\"\n  value: 5\n  timestamp: \"2025-04-01T00:00:00Z\"\n"
 
-	if err := os.WriteFile(filepath.Join(metricsDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
+	// Write the test metrics file directly to the data directory
+	if err := os.WriteFile(filepath.Join(dataDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
 		t.Fatalf("Failed to write test metrics file: %v", err)
 	}
 
@@ -97,16 +88,26 @@ func TestConfigLoader(t *testing.T) {
 		}
 	}
 
-	// Check if metrics directory exists
-	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
-		t.Errorf("Expected metrics directory %s to exist", metricsDir)
+	// Check if data directory exists
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		t.Errorf("Expected data directory %s to exist", dataDir)
 	} else {
 		// Check if metrics files exist
-		metricFiles, err := os.ReadDir(metricsDir)
+		dataFiles, err := os.ReadDir(dataDir)
 		if err != nil {
-			t.Errorf("Failed to read metrics directory: %v", err)
-		} else if len(metricFiles) == 0 {
-			t.Errorf("Expected metrics files in %s, but directory is empty", metricsDir)
+			t.Errorf("Failed to read data directory: %v", err)
+		} else {
+			// Check if we have at least one YAML file
+			yamlFound := false
+			for _, file := range dataFiles {
+				if !file.IsDir() && (strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml")) {
+					yamlFound = true
+					break
+				}
+			}
+			if !yamlFound {
+				t.Errorf("Expected at least one YAML file in %s, but none found", dataDir)
+			}
 		}
 	}
 
