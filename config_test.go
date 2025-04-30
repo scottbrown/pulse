@@ -72,17 +72,17 @@ func TestConfigLoader(t *testing.T) {
 		t.Fatalf("Failed to write levers config file: %v", err)
 	}
 
-	// Create test metrics file
-	testMetricsData := `metrics:
-  - reference: "test_cat.KPI.test_kpi"
-    value: 10
-    timestamp: "2025-04-01T00:00:00Z"
-  - reference: "test_cat.KRI.test_kri"
-    value: 5
-    timestamp: "2025-04-01T00:00:00Z"`
+	// Create test metrics file with exact format matching default files
+	testMetricsData := "metrics:\n- reference: \"test_cat.KPI.test_kpi\"\n  value: 10\n  timestamp: \"2025-04-01T00:00:00Z\"\n- reference: \"test_cat.KRI.test_kri\"\n  value: 5\n  timestamp: \"2025-04-01T00:00:00Z\"\n"
 
-	if err := os.WriteFile(filepath.Join(metricsDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
+	// Write the test metrics file directly to the data directory
+	if err := os.WriteFile(filepath.Join(dataDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
 		t.Fatalf("Failed to write test metrics file: %v", err)
+	}
+
+	// Also write a copy to the metrics directory for backward compatibility testing
+	if err := os.WriteFile(filepath.Join(metricsDir, "test_cat.yaml"), []byte(testMetricsData), 0644); err != nil {
+		t.Fatalf("Failed to write test metrics file to metrics directory: %v", err)
 	}
 
 	// Check if the files were created
