@@ -325,38 +325,6 @@ func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
 	return allMetrics, nil
 }
 
-// loadLegacyMetricsData loads metrics from the legacy single file format
-func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
-	path := filepath.Join(c.DataDir, "metrics.yaml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		// If the file doesn't exist, return an empty metrics data instead of an error
-		if os.IsNotExist(err) {
-			return &MetricsData{
-				Metrics: []Metric{},
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to read metrics data file: %w", err)
-	}
-
-	// Validate YAML before parsing
-	if err := validateYAML(data); err != nil {
-		return nil, fmt.Errorf("invalid metrics data file: %w", err)
-	}
-
-	var metricsData MetricsData
-	if err := yaml.Unmarshal(data, &metricsData); err != nil {
-		return nil, fmt.Errorf("failed to parse metrics data file: %w", err)
-	}
-
-	// Mark all metrics as coming from the legacy file
-	for i := range metricsData.Metrics {
-		metricsData.Metrics[i].SourceFile = "metrics.yaml"
-	}
-
-	return &metricsData, nil
-}
-
 // SaveMetricsData saves the metrics data to YAML files in the data directory
 func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
 	// Use global mutex to prevent concurrent access to file operations
