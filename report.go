@@ -20,13 +20,14 @@ type jsonReport struct {
 }
 
 type jsonCategory struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	KPIScore  int          `json:"kpi_score"`
-	KRIScore  int          `json:"kri_score"`
-	KPIStatus string       `json:"kpi_status"`
-	KRIStatus string       `json:"kri_status"`
-	Metrics   []jsonMetric `json:"metrics"`
+	ID            string       `json:"id"`
+	Name          string       `json:"name"`
+	WeightPercent int          `json:"weight_percent"`
+	KPIScore      int          `json:"kpi_score"`
+	KRIScore      int          `json:"kri_score"`
+	KPIStatus     string       `json:"kpi_status"`
+	KRIStatus     string       `json:"kri_status"`
+	Metrics       []jsonMetric `json:"metrics"`
 }
 
 type jsonMetric struct {
@@ -36,14 +37,15 @@ type jsonMetric struct {
 }
 
 type jsonCategoryReport struct {
-	ReportDate   string       `json:"report_date"`
-	CategoryID   string       `json:"category_id"`
-	CategoryName string       `json:"category_name"`
-	KPIScore     int          `json:"kpi_score"`
-	KRIScore     int          `json:"kri_score"`
-	KPIStatus    string       `json:"kpi_status"`
-	KRIStatus    string       `json:"kri_status"`
-	Metrics      []jsonMetric `json:"metrics"`
+	ReportDate    string       `json:"report_date"`
+	CategoryID    string       `json:"category_id"`
+	CategoryName  string       `json:"category_name"`
+	WeightPercent int          `json:"weight_percent"`
+	KPIScore      int          `json:"kpi_score"`
+	KRIScore      int          `json:"kri_score"`
+	KPIStatus     string       `json:"kpi_status"`
+	KRIStatus     string       `json:"kri_status"`
+	Metrics       []jsonMetric `json:"metrics"`
 }
 
 // ThresholdLabelType defines the type of threshold labels to use
@@ -141,7 +143,17 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 	sb.WriteString("Category Scores:\n")
 	sb.WriteString("----------------\n")
 	for _, category := range score.Categories {
-		sb.WriteString(fmt.Sprintf("- %s:\n", sanitizeString(category.Name)))
+		// Get the weight for this category
+		weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[category.ID]
+		if !exists {
+			// Use equal weights if not specified
+			weight = 1.0 / float64(len(score.Categories))
+		}
+
+		// Format weight as percentage
+		weightPercentage := int(weight * 100)
+
+		sb.WriteString(fmt.Sprintf("- %s (weight: %d%%):\n", sanitizeString(category.Name), weightPercentage))
 		sb.WriteString(fmt.Sprintf("  KPI: %d (%s), KRI: %d (%s)\n",
 			category.KPIScore, r.formatStatus(category.KPIStatus),
 			category.KRIScore, r.formatStatus(category.KRIStatus)))
@@ -168,7 +180,22 @@ func (r *ReportGenerator) formatOverallReportAsText(score *OverallScore) string 
 func (r *ReportGenerator) formatCategoryReportAsText(score *CategoryScore) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("===== %s REPORT =====\n\n", strings.ToUpper(sanitizeString(score.Name))))
+	// Get the weight for this category
+	weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[score.ID]
+	if !exists {
+		// Use equal weights if not specified
+		totalCategories := len(r.scoreCalculator.metricsProcessor.GetAllCategories())
+		if totalCategories > 0 {
+			weight = 1.0 / float64(totalCategories)
+		} else {
+			weight = 1.0
+		}
+	}
+
+	// Format weight as percentage
+	weightPercentage := int(weight * 100)
+
+	sb.WriteString(fmt.Sprintf("===== %s REPORT (WEIGHT: %d%%) =====\n\n", strings.ToUpper(sanitizeString(score.Name)), weightPercentage))
 	sb.WriteString(fmt.Sprintf("KPI Score: %d (%s)\n", score.KPIScore, r.formatStatus(score.KPIStatus)))
 	sb.WriteString(fmt.Sprintf("KRI Score: %d (%s)\n", score.KRIScore, r.formatStatus(score.KRIStatus)))
 	sb.WriteString(fmt.Sprintf("Report Date: %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
@@ -233,14 +260,25 @@ func (r *ReportGenerator) formatOverallReportAsJSON(score *OverallScore) (string
 			})
 		}
 
+		// Get the weight for this category
+		weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[category.ID]
+		if !exists {
+			// Use equal weights if not specified
+			weight = 1.0 / float64(len(score.Categories))
+		}
+
+		// Format weight as percentage
+		weightPercentage := int(weight * 100)
+
 		categories = append(categories, jsonCategory{
-			ID:        sanitizeString(category.ID),
-			Name:      sanitizeString(category.Name),
-			KPIScore:  category.KPIScore,
-			KRIScore:  category.KRIScore,
-			KPIStatus: string(category.KPIStatus),
-			KRIStatus: string(category.KRIStatus),
-			Metrics:   metrics,
+			ID:            sanitizeString(category.ID),
+			Name:          sanitizeString(category.Name),
+			WeightPercent: weightPercentage,
+			KPIScore:      category.KPIScore,
+			KRIScore:      category.KRIScore,
+			KPIStatus:     string(category.KPIStatus),
+			KRIStatus:     string(category.KRIStatus),
+			Metrics:       metrics,
 		})
 	}
 
@@ -273,15 +311,31 @@ func (r *ReportGenerator) formatCategoryReportAsJSON(score *CategoryScore) (stri
 		})
 	}
 
+	// Get the weight for this category
+	weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[score.ID]
+	if !exists {
+		// Use equal weights if not specified
+		totalCategories := len(r.scoreCalculator.metricsProcessor.GetAllCategories())
+		if totalCategories > 0 {
+			weight = 1.0 / float64(totalCategories)
+		} else {
+			weight = 1.0
+		}
+	}
+
+	// Format weight as percentage
+	weightPercentage := int(weight * 100)
+
 	report := jsonCategoryReport{
-		ReportDate:   time.Now().Format(time.RFC3339),
-		CategoryID:   sanitizeString(score.ID),
-		CategoryName: sanitizeString(score.Name),
-		KPIScore:     score.KPIScore,
-		KRIScore:     score.KRIScore,
-		KPIStatus:    string(score.KPIStatus),
-		KRIStatus:    string(score.KRIStatus),
-		Metrics:      metrics,
+		ReportDate:    time.Now().Format(time.RFC3339),
+		CategoryID:    sanitizeString(score.ID),
+		CategoryName:  sanitizeString(score.Name),
+		WeightPercent: weightPercentage,
+		KPIScore:      score.KPIScore,
+		KRIScore:      score.KRIScore,
+		KPIStatus:     string(score.KPIStatus),
+		KRIStatus:     string(score.KRIStatus),
+		Metrics:       metrics,
 	}
 
 	jsonData, err := json.MarshalIndent(report, "", "  ")
