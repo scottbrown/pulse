@@ -15,6 +15,146 @@ import (
 //go:embed defaults/config/* defaults/data/metrics/*
 var defaultFiles embed.FS
 
+// MigrateMetricsData migrates metrics from both legacy formats to the new format
+func (c *ConfigLoader) MigrateMetricsData() error {
+	allMetrics := &MetricsData{
+		Metrics: []Metric{},
+	}
+
+	// 1. Check and migrate legacy file if it exists
+	legacyPath := filepath.Join(c.DataDir, "metrics.yaml")
+	if _, err := os.Stat(legacyPath); err == nil {
+		// Legacy file exists, read it
+		data, err := os.ReadFile(legacyPath)
+		if err != nil {
+			return fmt.Errorf("failed to read legacy metrics file: %w", err)
+		}
+
+		// Validate YAML before parsing
+		if err := validateYAML(data); err != nil {
+			return fmt.Errorf("invalid legacy metrics file: %w", err)
+		}
+
+		var legacyMetrics MetricsData
+		if err := yaml.Unmarshal(data, &legacyMetrics); err != nil {
+			return fmt.Errorf("failed to parse legacy metrics file: %w", err)
+		}
+
+		// Add source file information to each metric
+		for i := range legacyMetrics.Metrics {
+			parts := strings.Split(legacyMetrics.Metrics[i].Reference, ".")
+			if len(parts) >= 1 {
+				categoryID := parts[0]
+				legacyMetrics.Metrics[i].SourceFile = categoryID + ".yaml"
+			} else {
+				legacyMetrics.Metrics[i].SourceFile = "default.yaml"
+			}
+		}
+
+		// Add to all metrics
+		allMetrics.Metrics = append(allMetrics.Metrics, legacyMetrics.Metrics...)
+
+		// Rename legacy file to .bak
+		backupPath := legacyPath + ".bak"
+		if err := os.Rename(legacyPath, backupPath); err != nil {
+			return fmt.Errorf("failed to rename legacy metrics file: %w", err)
+		}
+	}
+
+	// 2. Check and migrate metrics directory if it exists
+	metricsDir := filepath.Join(c.DataDir, "metrics")
+	if _, err := os.Stat(metricsDir); err == nil {
+		// Metrics directory exists, read all files
+		files, err := os.ReadDir(metricsDir)
+		if err != nil {
+			return fmt.Errorf("failed to read metrics directory: %w", err)
+		}
+
+		// Process each YAML file in the directory
+		for _, file := range files {
+			if file.IsDir() || (!strings.HasSuffix(file.Name(), ".yaml") &&
+				!strings.HasSuffix(file.Name(), ".yml")) {
+				continue
+			}
+
+			path := filepath.Join(metricsDir, file.Name())
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read metrics file %s: %w", file.Name(), err)
+			}
+
+			// Validate YAML before parsing
+			if err := validateYAML(data); err != nil {
+				return fmt.Errorf("invalid metrics file %s: %w", file.Name(), err)
+			}
+
+			var fileMetrics MetricsData
+			if err := yaml.Unmarshal(data, &fileMetrics); err != nil {
+				return fmt.Errorf("failed to parse metrics file %s: %w", file.Name(), err)
+			}
+
+			// Add source file information to each metric
+			for i := range fileMetrics.Metrics {
+				parts := strings.Split(fileMetrics.Metrics[i].Reference, ".")
+				if len(parts) >= 1 {
+					categoryID := parts[0]
+					fileMetrics.Metrics[i].SourceFile = categoryID + ".yaml"
+				} else {
+					fileMetrics.Metrics[i].SourceFile = file.Name()
+				}
+			}
+
+			// Add to all metrics
+			allMetrics.Metrics = append(allMetrics.Metrics, fileMetrics.Metrics...)
+		}
+
+		// Rename metrics directory to .bak
+		backupDir := metricsDir + ".bak"
+		if err := os.Rename(metricsDir, backupDir); err != nil {
+			return fmt.Errorf("failed to rename metrics directory: %w", err)
+		}
+	}
+
+	// If we have metrics to migrate, save them to the new format
+	if len(allMetrics.Metrics) > 0 {
+		// Group metrics by category
+		metricsByCategory := make(map[string][]Metric)
+
+		for _, metric := range allMetrics.Metrics {
+			sourceFile := metric.SourceFile
+			if sourceFile == "" {
+				parts := strings.Split(metric.Reference, ".")
+				if len(parts) >= 1 {
+					sourceFile = parts[0] + ".yaml"
+				} else {
+					sourceFile = "default.yaml"
+				}
+			}
+			metricsByCategory[sourceFile] = append(metricsByCategory[sourceFile], metric)
+		}
+
+		// Save metrics to new files
+		for fileName, metrics := range metricsByCategory {
+			filePath := filepath.Join(c.DataDir, fileName)
+
+			fileData := MetricsData{
+				Metrics: metrics,
+			}
+
+			data, err := yaml.Marshal(fileData)
+			if err != nil {
+				return fmt.Errorf("failed to marshal metrics data for %s: %w", fileName, err)
+			}
+
+			if err := os.WriteFile(filePath, data, 0600); err != nil {
+				return fmt.Errorf("failed to write metrics file %s: %w", fileName, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Global mutex for file operations
 var fileLock sync.Mutex
 
@@ -115,33 +255,27 @@ func (c *ConfigLoader) LoadLeversConfig() (*LeversConfig, error) {
 	return &config, nil
 }
 
-// LoadMetricsData loads the metrics data from YAML files in the metrics directory
+// LoadMetricsData loads the metrics data from YAML files in the data directory
 func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
-	metricsDir := filepath.Join(c.DataDir, "metrics")
-
-	// Check if metrics directory exists
-	if _, err := os.Stat(metricsDir); os.IsNotExist(err) {
-		// If not, try the legacy single file approach
-		return c.loadLegacyMetricsData()
+	// Check if data directory exists
+	if _, err := os.Stat(c.DataDir); os.IsNotExist(err) {
+		return &MetricsData{
+			Metrics: []Metric{},
+		}, nil
 	}
 
-	// Read all files in the metrics directory
-	files, err := os.ReadDir(metricsDir)
+	// Read all files in the data directory
+	files, err := os.ReadDir(c.DataDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read metrics directory: %w", err)
+		return nil, fmt.Errorf("failed to read data directory: %w", err)
 	}
 
 	allMetrics := &MetricsData{
 		Metrics: []Metric{},
 	}
 
-	// If no files found, try legacy approach
+	// If no files found, return empty metrics
 	if len(files) == 0 {
-		legacyData, err := c.loadLegacyMetricsData()
-		if err == nil {
-			return legacyData, nil
-		}
-		// If legacy approach fails, return empty metrics
 		return allMetrics, nil
 	}
 
@@ -149,12 +283,13 @@ func (c *ConfigLoader) LoadMetricsData() (*MetricsData, error) {
 	var parseErrors []string
 
 	for _, file := range files {
+		// Skip directories and non-YAML files
 		if file.IsDir() || (!strings.HasSuffix(file.Name(), ".yaml") &&
 			!strings.HasSuffix(file.Name(), ".yml")) {
 			continue
 		}
 
-		path := filepath.Join(metricsDir, file.Name())
+		path := filepath.Join(c.DataDir, file.Name())
 		data, err := os.ReadFile(path)
 		if err != nil {
 			parseErrors = append(parseErrors, fmt.Sprintf("failed to read metrics file %s: %v", file.Name(), err))
@@ -222,17 +357,15 @@ func (c *ConfigLoader) loadLegacyMetricsData() (*MetricsData, error) {
 	return &metricsData, nil
 }
 
-// SaveMetricsData saves the metrics data to YAML files in the metrics directory
+// SaveMetricsData saves the metrics data to YAML files in the data directory
 func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
 	// Use global mutex to prevent concurrent access to file operations
 	fileLock.Lock()
 	defer fileLock.Unlock()
 
-	metricsDir := filepath.Join(c.DataDir, "metrics")
-
-	// Ensure metrics directory exists
-	if err := os.MkdirAll(metricsDir, 0700); err != nil {
-		return fmt.Errorf("failed to create metrics directory: %w", err)
+	// Ensure data directory exists
+	if err := os.MkdirAll(c.DataDir, 0700); err != nil {
+		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	// Group metrics by source file
@@ -249,12 +382,7 @@ func (c *ConfigLoader) SaveMetricsData(metricsData *MetricsData) error {
 
 	// Save each group to its respective file
 	for fileName, metrics := range metricsByFile {
-		filePath := filepath.Join(metricsDir, fileName)
-
-		// For legacy file, use the original path
-		if fileName == "metrics.yaml" {
-			filePath = filepath.Join(c.DataDir, fileName)
-		}
+		filePath := filepath.Join(c.DataDir, fileName)
 
 		fileData := MetricsData{
 			Metrics: metrics,
@@ -296,14 +424,12 @@ func (c *ConfigLoader) CreateMetricFile(fileName string) error {
 		return fmt.Errorf("invalid filename: %s (contains path separators)", fileName)
 	}
 
-	metricsDir := filepath.Join(c.DataDir, "metrics")
-
-	// Ensure metrics directory exists
-	if err := os.MkdirAll(metricsDir, 0700); err != nil {
-		return fmt.Errorf("failed to create metrics directory: %w", err)
+	// Ensure data directory exists
+	if err := os.MkdirAll(c.DataDir, 0700); err != nil {
+		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	filePath := filepath.Join(metricsDir, fileName)
+	filePath := filepath.Join(c.DataDir, fileName)
 
 	// Check if file already exists
 	if _, err := os.Stat(filePath); err == nil {
@@ -346,12 +472,6 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
-	// Create metrics directory
-	metricsDir := filepath.Join(c.DataDir, "metrics")
-	if err := os.MkdirAll(metricsDir, 0700); err != nil {
-		return fmt.Errorf("failed to create metrics directory: %w", err)
-	}
-
 	// Helper function to copy embedded file to destination
 	copyEmbeddedFile := func(embeddedPath, destPath string) error {
 		// Check if destination file already exists
@@ -382,14 +502,14 @@ func (c *ConfigLoader) CreateDefaultConfigFiles() error {
 		return err
 	}
 
-	// Copy metrics data files
-	if err := copyEmbeddedFile("defaults/data/metrics/app_sec.yaml", filepath.Join(metricsDir, "app_sec.yaml")); err != nil {
+	// Copy metrics data files directly to the data directory
+	if err := copyEmbeddedFile("defaults/data/metrics/app_sec.yaml", filepath.Join(c.DataDir, "app_sec.yaml")); err != nil {
 		return err
 	}
-	if err := copyEmbeddedFile("defaults/data/metrics/infra_sec.yaml", filepath.Join(metricsDir, "infra_sec.yaml")); err != nil {
+	if err := copyEmbeddedFile("defaults/data/metrics/infra_sec.yaml", filepath.Join(c.DataDir, "infra_sec.yaml")); err != nil {
 		return err
 	}
-	if err := copyEmbeddedFile("defaults/data/metrics/compliance.yaml", filepath.Join(metricsDir, "compliance.yaml")); err != nil {
+	if err := copyEmbeddedFile("defaults/data/metrics/compliance.yaml", filepath.Join(c.DataDir, "compliance.yaml")); err != nil {
 		return err
 	}
 
