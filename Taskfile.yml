@@ -150,17 +150,29 @@ tasks:
       - mkdir -p {{.BUILD_DIR}}
       - mkdir -p {{.DIST_DIR}}
       
-      # Build for Linux
+      # Build for Linux (amd64)
       - GOOS=linux GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-amd64 {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-linux-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-linux-amd64
       
-      # Build for Windows
+      # Build for Linux (arm64)
+      - GOOS=linux GOARCH=arm64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-linux-arm64 {{.REPO}}/cmd
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-linux-arm64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-linux-arm64
+      
+      # Build for Windows (amd64)
       - GOOS=windows GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-amd64.exe {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-windows-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-windows-amd64.exe
       
-      # Build for macOS
+      # Build for Windows (arm64)
+      - GOOS=windows GOARCH=arm64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-windows-arm64.exe {{.REPO}}/cmd
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-windows-arm64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-windows-arm64.exe
+      
+      # Build for macOS (amd64)
       - GOOS=darwin GOARCH=amd64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-amd64 {{.REPO}}/cmd
       - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-darwin-amd64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-darwin-amd64
+      
+      # Build for macOS (arm64)
+      - GOOS=darwin GOARCH=arm64 go build -ldflags "{{.BUILD_FLAGS}}" -o {{.BUILD_DIR}}/{{.BINARY_NAME}}-darwin-arm64 {{.REPO}}/cmd
+      - tar -czf {{.DIST_DIR}}/{{.BINARY_NAME}}-darwin-arm64.tar.gz -C {{.BUILD_DIR}} {{.BINARY_NAME}}-darwin-arm64
 
   all:
     desc: Run all tasks (clean, build, test, coverage)
