@@ -22,6 +22,7 @@ jobs:
 
       # Scan the SBOM for vulnerabilities using Anchore Grype
       - name: Scan SBOM for vulnerabilities
+        id: scan
         uses: anchore/scan-action@v6
         with:
           sbom: sbom.json
@@ -29,7 +30,13 @@ jobs:
           fail-build: true
           severity-cutoff: critical
           # Optional: Output the vulnerability report
-          output-format: table
+          output-format: sarif
+          only-fixed: true
+
+      - name: upload Anchore scan SARIF report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
 
       # Archive the SBOM as an artifact
       - name: Upload SBOM
