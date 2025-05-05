@@ -37,8 +37,8 @@ jobs:
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: sbom
-          path: ./sbom.json
+          name: sbom.json
+          path: "${{ env.ANCHORE_SBOM_ACTION_PRIOR_ARTIFACT }}"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
