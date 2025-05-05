@@ -32,20 +32,20 @@ jobs:
           fail-build: false
           severity-cutoff: critical
           # Optional: Output the vulnerability report
-          output-format: table
+          output-format: sarif
           only-fixed: true
 
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom.json
-          path: "${{ env.ANCHORE_SBOM_ACTION_PRIOR_ARTIFACT }}"
-
-      # - name: Upload Results
+      # - name: Upload SBOM
       #   uses: actions/upload-artifact@v4
       #   with:
-      #     name: results.sarif
-      #     path: ${{ steps.scan.outputs.sarif }}
+      #     name: sbom.json
+      #     path: "${{ env.ANCHORE_SBOM_ACTION_PRIOR_ARTIFACT }}"
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: results.sarif
+          path: ${{ steps.scan.outputs.sarif }}
 
 #      - name: upload Anchore scan SARIF report
 #        uses: github/codeql-action/upload-sarif@v3
