@@ -20,6 +20,7 @@ jobs:
           format: cyclonedx-json
           artifact-name: sbom.json
           path: .
+          output-file: .
 
       # Scan the SBOM for vulnerabilities using Anchore Grype
       - name: Scan SBOM for vulnerabilities
