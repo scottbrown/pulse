@@ -26,7 +26,7 @@ jobs:
         id: scan
         uses: anchore/scan-action@v6
         with:
-          sbom: sbom.json
+          sbom: "${{ env.ANCHORE_SBOM_ACTION_PRIOR_ARTIFACT }}"
           # Set fail-build to true to fail the workflow if critical vulnerabilities are found
           fail-build: false
           severity-cutoff: critical
