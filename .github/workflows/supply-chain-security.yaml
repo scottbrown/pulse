@@ -1,0 +1,39 @@
+name: SBOM Generation and Vulnerability Scanning
+
+on:
+  pull_request:
+    branches: [ main ]
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  sbom-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Generate SBOM using Anchore Syft
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: ./sbom.json
+
+      # Scan the SBOM for vulnerabilities using Anchore Grype
+      - name: Scan SBOM for vulnerabilities
+        uses: anchore/scan-action@v3
+        with:
+          sbom: ./sbom.json
+          # Set fail-build to true to fail the workflow if critical vulnerabilities are found
+          fail-build: true
+          severity-cutoff: critical
+          # Optional: Output the vulnerability report
+          output-format: table
+
+      # Archive the SBOM as an artifact
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom
+          path: ./sbom.json
