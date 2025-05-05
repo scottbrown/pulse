@@ -174,6 +174,9 @@ pulse report --category "Application Security"
 # Generate a detailed report in JSON format
 pulse report --format json --output report.json
 
+# Generate a report in tabular format
+pulse report --format table
+
 # Update metric values
 pulse update --metric "app_sec.KRI.critical_vulns" --value 2
 

@@ -18,7 +18,7 @@ func setupFlags(defaultConfigDir, defaultDataDir string) {
 	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", defaultDataDir, "Directory containing data files")
 
 	reportCmd.Flags().StringVarP(&category, "category", "c", "", "Generate report for a specific category")
-	reportCmd.Flags().StringVarP(&format, "format", "f", "text", "Report format (text or json)")
+	reportCmd.Flags().StringVarP(&format, "format", "f", "text", "Report format (text, json, or table)")
 	reportCmd.Flags().StringVarP(&outputFile, "output", "o", "", "Output file (default: stdout)")
 	reportCmd.Flags().StringVar(&scoringMethod, "scoring-method", "median", "Scoring method to use (median or average)")
 	reportCmd.Flags().StringVar(&thresholdLabels, "threshold-labels", "emoji", "Threshold label format (emoji or text)")
