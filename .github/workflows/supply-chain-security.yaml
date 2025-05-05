@@ -22,9 +22,9 @@ jobs:
 
       # Scan the SBOM for vulnerabilities using Anchore Grype
       - name: Scan SBOM for vulnerabilities
-        uses: anchore/scan-action@v3
+        uses: anchore/scan-action@v6
         with:
-          sbom: ./sbom.json
+          sbom: sbom.json
           # Set fail-build to true to fail the workflow if critical vulnerabilities are found
           fail-build: true
           severity-cutoff: critical
