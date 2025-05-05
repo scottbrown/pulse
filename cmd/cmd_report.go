@@ -78,8 +78,11 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 	var reportErr error
 
 	reportFormat := pulse.TextFormat
-	if format == "json" {
+	switch format {
+	case "json":
 		reportFormat = pulse.JSONFormat
+	case "table":
+		reportFormat = pulse.TableFormat
 	}
 
 	if category != "" {

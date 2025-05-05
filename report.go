@@ -1,11 +1,13 @@
 package pulse
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html"
 	"regexp"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -76,8 +78,9 @@ func NewReportGenerator(scoreCalculator *ScoreCalculator, labelType ThresholdLab
 type ReportFormat string
 
 const (
-	TextFormat ReportFormat = "text"
-	JSONFormat ReportFormat = "json"
+	TextFormat  ReportFormat = "text"
+	JSONFormat  ReportFormat = "json"
+	TableFormat ReportFormat = "table"
 )
 
 // GenerateOverallReport generates an overall security posture report
@@ -92,6 +95,8 @@ func (r *ReportGenerator) GenerateOverallReport(format ReportFormat) (string, er
 		return r.formatOverallReportAsText(overallScore), nil
 	case JSONFormat:
 		return r.formatOverallReportAsJSON(overallScore)
+	case TableFormat:
+		return r.formatOverallReportAsTable(overallScore), nil
 	default:
 		return "", fmt.Errorf("unsupported report format: %s", format)
 	}
@@ -109,6 +114,8 @@ func (r *ReportGenerator) GenerateCategoryReport(categoryID string, format Repor
 		return r.formatCategoryReportAsText(categoryScore), nil
 	case JSONFormat:
 		return r.formatCategoryReportAsJSON(categoryScore)
+	case TableFormat:
+		return r.formatCategoryReportAsTable(categoryScore), nil
 	default:
 		return "", fmt.Errorf("unsupported report format: %s", format)
 	}
@@ -372,4 +379,145 @@ func (r *ReportGenerator) formatStatus(status TrafficLightStatus) string {
 			return "❓" // Question mark
 		}
 	}
+}
+
+// formatOverallReportAsTable formats the overall report as a table
+func (r *ReportGenerator) formatOverallReportAsTable(score *OverallScore) string {
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
+	// Report header
+	fmt.Fprintln(w, "===== SECURITY POSTURE REPORT =====")
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "KPI Score:\t%d\t(%s)\n", score.KPIScore, r.formatStatus(score.KPIStatus))
+	fmt.Fprintf(w, "KRI Score:\t%d\t(%s)\n", score.KRIScore, r.formatStatus(score.KRIStatus))
+	fmt.Fprintf(w, "Report Date:\t%s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Fprintln(w)
+
+	// Category scores table
+	fmt.Fprintln(w, "CATEGORY SCORES:")
+	fmt.Fprintln(w, "Category\tWeight\tKPI Score\tKPI Status\tKRI Score\tKRI Status")
+	fmt.Fprintln(w, "--------\t------\t---------\t----------\t---------\t----------")
+
+	for _, category := range score.Categories {
+		// Get the weight for this category
+		weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[category.ID]
+		if !exists {
+			// Use equal weights if not specified
+			weight = 1.0 / float64(len(score.Categories))
+		}
+
+		// Format weight as percentage
+		weightPercentage := int(weight * 100)
+
+		fmt.Fprintf(w, "%s\t%d%%\t%d\t%s\t%d\t%s\n",
+			sanitizeString(category.Name),
+			weightPercentage,
+			category.KPIScore,
+			r.formatStatus(category.KPIStatus),
+			category.KRIScore,
+			r.formatStatus(category.KRIStatus))
+	}
+	fmt.Fprintln(w)
+
+	// Detailed metrics table
+	fmt.Fprintln(w, "DETAILED METRICS:")
+	fmt.Fprintln(w, "Category\tMetric Type\tMetric ID\tScore\tStatus")
+	fmt.Fprintln(w, "--------\t-----------\t---------\t-----\t------")
+
+	for _, category := range score.Categories {
+		for _, metric := range category.Metrics {
+			parts := strings.Split(metric.Reference, ".")
+			if len(parts) == 3 {
+				metricType := parts[1]
+				metricID := parts[2]
+				fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\n",
+					sanitizeString(category.Name),
+					sanitizeString(metricType),
+					sanitizeString(metricID),
+					metric.Score,
+					r.formatStatus(metric.Status))
+			}
+		}
+	}
+
+	w.Flush()
+	return buf.String()
+}
+
+// formatCategoryReportAsTable formats a category report as a table
+func (r *ReportGenerator) formatCategoryReportAsTable(score *CategoryScore) string {
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
+	// Get the weight for this category
+	weight, exists := r.scoreCalculator.metricsProcessor.leversConfig.Weights.Categories[score.ID]
+	if !exists {
+		// Use equal weights if not specified
+		totalCategories := len(r.scoreCalculator.metricsProcessor.GetAllCategories())
+		if totalCategories > 0 {
+			weight = 1.0 / float64(totalCategories)
+		} else {
+			weight = 1.0
+		}
+	}
+
+	// Format weight as percentage
+	weightPercentage := int(weight * 100)
+
+	// Report header
+	fmt.Fprintf(w, "===== %s REPORT (WEIGHT: %d%%) =====\n", strings.ToUpper(sanitizeString(score.Name)), weightPercentage)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "KPI Score:\t%d\t(%s)\n", score.KPIScore, r.formatStatus(score.KPIStatus))
+	fmt.Fprintf(w, "KRI Score:\t%d\t(%s)\n", score.KRIScore, r.formatStatus(score.KRIStatus))
+	fmt.Fprintf(w, "Report Date:\t%s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Fprintln(w)
+
+	// Group metrics by type
+	var kpiMetrics []MetricScore
+	var kriMetrics []MetricScore
+
+	for _, metric := range score.Metrics {
+		parts := strings.Split(metric.Reference, ".")
+		if len(parts) == 3 {
+			metricType := parts[1]
+			if metricType == "KPI" {
+				kpiMetrics = append(kpiMetrics, metric)
+			} else if metricType == "KRI" {
+				kriMetrics = append(kriMetrics, metric)
+			}
+		}
+	}
+
+	// Display metrics table
+	fmt.Fprintln(w, "METRICS:")
+	fmt.Fprintln(w, "Type\tID\tScore\tStatus")
+	fmt.Fprintln(w, "----\t--\t-----\t------")
+
+	// Display KPIs
+	for _, metric := range kpiMetrics {
+		parts := strings.Split(metric.Reference, ".")
+		if len(parts) == 3 {
+			metricID := parts[2]
+			fmt.Fprintf(w, "KPI\t%s\t%d\t%s\n",
+				sanitizeString(metricID),
+				metric.Score,
+				r.formatStatus(metric.Status))
+		}
+	}
+
+	// Display KRIs
+	for _, metric := range kriMetrics {
+		parts := strings.Split(metric.Reference, ".")
+		if len(parts) == 3 {
+			metricID := parts[2]
+			fmt.Fprintf(w, "KRI\t%s\t%d\t%s\n",
+				sanitizeString(metricID),
+				metric.Score,
+				r.formatStatus(metric.Status))
+		}
+	}
+
+	w.Flush()
+	return buf.String()
 }
