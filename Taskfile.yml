@@ -7,7 +7,12 @@ vars:
   TEST_DIR: .test
   BINARY_NAME: pulse
   VERSION:
-    sh: git rev-parse --abbrev-ref HEAD || echo "main"
+    sh: |
+      if [ -n "$GITHUB_REF" ] && [[ "$GITHUB_REF" == refs/tags/* ]]; then
+        echo "${GITHUB_REF#refs/tags/}"
+      else
+        git rev-parse --abbrev-ref HEAD || echo "main"
+      fi
   BUILD:
     sh: git rev-parse --short HEAD || echo "unknown"
   BUILD_FLAGS: "-X {{.REPO}}.Version={{.VERSION}} -X {{.REPO}}.Build={{.BUILD}}"
