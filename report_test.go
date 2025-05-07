@@ -126,10 +126,13 @@ func TestReportGenerator(t *testing.T) {
 	generator := NewReportGenerator(calculator, TextLabels)
 
 	// Test GenerateOverallReport with TextFormat
-	textReport, err := generator.GenerateOverallReport(TextFormat)
+	textReportOutput, err := generator.GenerateOverallReport(TextFormat)
 	if err != nil {
 		t.Fatalf("Failed to generate overall text report: %v", err)
 	}
+
+	// Convert the report content to string
+	textReport := string(textReportOutput.Content)
 
 	// Check if the text report contains expected content
 	expectedTextContent := []string{
@@ -150,14 +153,14 @@ func TestReportGenerator(t *testing.T) {
 	}
 
 	// Test GenerateOverallReport with JSONFormat
-	jsonReport, err := generator.GenerateOverallReport(JSONFormat)
+	jsonReportOutput, err := generator.GenerateOverallReport(JSONFormat)
 	if err != nil {
 		t.Fatalf("Failed to generate overall JSON report: %v", err)
 	}
 
 	// Parse the JSON report
 	var jsonData map[string]interface{}
-	if err := json.Unmarshal([]byte(jsonReport), &jsonData); err != nil {
+	if err := json.Unmarshal(jsonReportOutput.Content, &jsonData); err != nil {
 		t.Fatalf("Failed to parse JSON report: %v", err)
 	}
 
@@ -182,10 +185,13 @@ func TestReportGenerator(t *testing.T) {
 	}
 
 	// Test GenerateCategoryReport with TextFormat
-	categoryTextReport, err := generator.GenerateCategoryReport("test_cat", TextFormat)
+	categoryTextReportOutput, err := generator.GenerateCategoryReport("test_cat", TextFormat)
 	if err != nil {
 		t.Fatalf("Failed to generate category text report: %v", err)
 	}
+
+	// Convert the report content to string
+	categoryTextReport := string(categoryTextReportOutput.Content)
 
 	// Check if the category text report contains expected content
 	expectedCategoryTextContent := []string{
@@ -203,14 +209,14 @@ func TestReportGenerator(t *testing.T) {
 	}
 
 	// Test GenerateCategoryReport with JSONFormat
-	categoryJsonReport, err := generator.GenerateCategoryReport("test_cat", JSONFormat)
+	categoryJsonReportOutput, err := generator.GenerateCategoryReport("test_cat", JSONFormat)
 	if err != nil {
 		t.Fatalf("Failed to generate category JSON report: %v", err)
 	}
 
 	// Parse the category JSON report
 	var categoryJsonData map[string]interface{}
-	if err := json.Unmarshal([]byte(categoryJsonReport), &categoryJsonData); err != nil {
+	if err := json.Unmarshal(categoryJsonReportOutput.Content, &categoryJsonData); err != nil {
 		t.Fatalf("Failed to parse category JSON report: %v", err)
 	}
 
@@ -275,5 +281,167 @@ func TestReportGenerator(t *testing.T) {
 	}
 	if emojiGenerator.formatStatus("unknown") != "❓" {
 		t.Errorf("Expected emojiGenerator.formatStatus('unknown') to be '❓', got '%s'", emojiGenerator.formatStatus("unknown"))
+	}
+}
+
+// TestPDFReport tests the PDF report generation
+func TestPDFReport(t *testing.T) {
+	// Create test data
+	metricsConfig := &MetricsConfig{
+		Categories: []Category{
+			{
+				ID:          "test_cat",
+				Name:        "Test Category",
+				Description: "Test category description",
+				KPIs: []KPI{
+					{
+						ID:          "test_kpi",
+						Name:        "Test KPI",
+						Description: "Test KPI description",
+						Unit:        "count",
+						ScoringBands: []ScoringBand{
+							{Max: FloatPtr(5), Score: 95},
+							{Min: FloatPtr(5), Max: FloatPtr(10), Score: 85},
+							{Min: FloatPtr(10), Max: FloatPtr(15), Score: 75},
+							{Min: FloatPtr(15), Max: FloatPtr(20), Score: 65},
+							{Min: FloatPtr(20), Score: 30},
+						},
+					},
+				},
+				KRIs: []KRI{
+					{
+						ID:          "test_kri",
+						Name:        "Test KRI",
+						Description: "Test KRI description",
+						Unit:        "count",
+						ScoringBands: []ScoringBand{
+							{Max: FloatPtr(0), Score: 95},
+							{Min: FloatPtr(0), Max: FloatPtr(2), Score: 85},
+							{Min: FloatPtr(2), Max: FloatPtr(5), Score: 75},
+							{Min: FloatPtr(5), Max: FloatPtr(10), Score: 65},
+							{Min: FloatPtr(10), Score: 30},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	leversConfig := &LeversConfig{
+		Global: Global{
+			Thresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 80,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 60,
+					Max: 79,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 59,
+				},
+			},
+			KPIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 85,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 65,
+					Max: 84,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 64,
+				},
+			},
+			KRIThresholds: Thresholds{
+				Green: ThresholdRange{
+					Min: 75,
+					Max: 100,
+				},
+				Yellow: ThresholdRange{
+					Min: 55,
+					Max: 74,
+				},
+				Red: ThresholdRange{
+					Min: 0,
+					Max: 54,
+				},
+			},
+		},
+		Weights: Weights{
+			Categories: CategoryWeights{
+				"test_cat": 1.0,
+			},
+		},
+	}
+
+	metricsData := &MetricsData{
+		Metrics: []Metric{
+			{
+				Reference: "test_cat.KPI.test_kpi",
+				Value:     3,
+				Timestamp: time.Now(),
+			},
+			{
+				Reference: "test_cat.KRI.test_kri",
+				Value:     4,
+				Timestamp: time.Now(),
+			},
+		},
+	}
+
+	// Create a MetricsProcessor
+	processor := NewMetricsProcessor(metricsConfig, leversConfig, metricsData)
+
+	// Create a ScoreCalculator with median scoring (default)
+	calculator := NewScoreCalculator(processor, MedianScoring)
+
+	// Create a ReportGenerator with text labels for testing
+	generator := NewReportGenerator(calculator, TextLabels)
+
+	// Test GenerateOverallReport with PDFFormat
+	pdfReport, err := generator.GenerateOverallReport(PDFFormat)
+	if err != nil {
+		t.Fatalf("Failed to generate overall PDF report: %v", err)
+	}
+
+	// Check if the PDF report is not empty
+	if len(pdfReport.Content) == 0 {
+		t.Error("Expected PDF report content to be non-empty")
+	}
+
+	// Check if the ContentType is set to "binary"
+	if pdfReport.ContentType != "binary" {
+		t.Errorf("Expected ContentType to be 'binary', got '%s'", pdfReport.ContentType)
+	}
+
+	// Check if the content starts with the PDF header
+	if len(pdfReport.Content) < 4 || string(pdfReport.Content[:4]) != "%PDF" {
+		t.Error("Expected PDF content to start with '%PDF'")
+	}
+
+	// Test GenerateCategoryReport with PDFFormat
+	categoryPDFReport, err := generator.GenerateCategoryReport("test_cat", PDFFormat)
+	if err != nil {
+		t.Fatalf("Failed to generate category PDF report: %v", err)
+	}
+
+	// Check if the PDF report is not empty
+	if len(categoryPDFReport.Content) == 0 {
+		t.Error("Expected category PDF report content to be non-empty")
+	}
+
+	// Check if the ContentType is set to "binary"
+	if categoryPDFReport.ContentType != "binary" {
+		t.Errorf("Expected ContentType to be 'binary', got '%s'", categoryPDFReport.ContentType)
+	}
+
+	// Check if the content starts with the PDF header
+	if len(categoryPDFReport.Content) < 4 || string(categoryPDFReport.Content[:4]) != "%PDF" {
+		t.Error("Expected PDF content to start with '%PDF'")
 	}
 }
