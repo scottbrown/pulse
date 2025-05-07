@@ -74,7 +74,7 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 	reportGenerator := pulse.NewReportGenerator(scoreCalculator, thresholdLabelType)
 
 	// Generate the report
-	var reportContent string
+	var reportOutput *pulse.ReportOutput
 	var reportErr error
 
 	reportFormat := pulse.TextFormat
@@ -83,12 +83,14 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 		reportFormat = pulse.JSONFormat
 	case "table":
 		reportFormat = pulse.TableFormat
+	case "pdf":
+		reportFormat = pulse.PDFFormat
 	}
 
 	if category != "" {
-		reportContent, reportErr = reportGenerator.GenerateCategoryReport(category, reportFormat)
+		reportOutput, reportErr = reportGenerator.GenerateCategoryReport(category, reportFormat)
 	} else {
-		reportContent, reportErr = reportGenerator.GenerateOverallReport(reportFormat)
+		reportOutput, reportErr = reportGenerator.GenerateOverallReport(reportFormat)
 	}
 
 	if reportErr != nil {
@@ -103,13 +105,18 @@ func runReportCmd(cmd *cobra.Command, args []string) {
 
 	// Output the report
 	if outputFile != "" {
-		err := os.WriteFile(outputFile, []byte(reportContent), 0600)
+		err := os.WriteFile(outputFile, reportOutput.Content, 0600)
 		if err != nil {
 			fmt.Printf("Error writing report to file: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("Report written to %s\n", outputFile)
 	} else {
-		fmt.Println(reportContent)
+		if reportOutput.ContentType == "binary" {
+			fmt.Println("PDF output requires an output file. Please specify one with --output/-o flag.")
+			os.Exit(1)
+		} else {
+			fmt.Println(string(reportOutput.Content))
+		}
 	}
 }
